@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:192.168.31.2)",
+      "WebFetch(domain:hupcv6.cn)",
+      "Bash(flutter create xiaomi_music_client)",
+      "Bash(flutter pub get)",
+      "Bash(mkdir -p core/{constants,errors,network,utils} data/{models,repositories,services} domain/{entities,repositories,usecases} presentation/{pages,widgets,providers})",
+      "Bash(flutter packages pub run build_runner build)",
+      "Bash(flutter analyze)",
+      "Bash(flutter run --hot)",
+      "Bash(flutter run -d chrome --hot)",
+      "Bash(touch README.md)",
+      "Bash(flutter run -d chrome --web-port=8080)",
+      "Bash(flutter build web --no-sound-null-safety)",
+      "Bash(flutter build web)",
+      "Bash(curl -H \"Host: 192.168.31.2:58090\" -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36\" -H \"Accept: */*\" -H \"X-Requested-With: XMLHttpRequest\" -H \"Content-Type: application/json; charset=UTF-8\" -H \"Referer: http://192.168.31.2:58090/static/default/index.html\" --data-binary \"{\"\"did\"\":\"\"703835710\"\",\"\"cmd\"\":\"\"下一首\"\"}\" --compressed \"http://192.168.31.2:58090/cmd\")",
+      "Bash(ls -la)",
+      "Bash(ls -la xiaomi_music_client)",
+      "Bash(flutter doctor)",
+      "Bash(find xiaomi_music_client/lib -name \"*.dart\")",
+      "Bash(ls -la xiaomi_music_client/lib/)",
+      "Bash(cat xiaomi_music_client/lib/main.dart)",
+      "Bash(find xiaomi_music_client/lib/presentation/pages -name \"*.dart\")",
+      "Bash(cat xiaomi_music_client/lib/presentation/pages/main_page.dart)",
+      "Bash(cat xiaomi_music_client/lib/presentation/pages/control_panel_page.dart)",
+      "Bash(cat xiaomi_music_client/lib/presentation/pages/playlist_page.dart)",
+      "Bash(sed -i '' 's/\\.withOpacity(/\\.withValues(alpha: /g' lib/presentation/pages/music_library_page.dart)",
+      "Bash(dart analyze \"/Users/pchu/Desktop/小爱同学/xiaomi_music_client/lib/presentation/pages/music_library_page.dart\" --no-hints)",
+      "Bash(dart analyze \"/Users/pchu/Desktop/小爱同学/xiaomi_music_client/lib/presentation/pages/music_library_page.dart\")",
+      "Bash(find \"/Users/pchu/Desktop\" -name \"pubspec.yaml\" -type f)",
+      "Bash(flutter clean)",
+      "Bash(cp \"/Users/pchu/Desktop/小爱同学 /xiaomi_music_client/lib/presentation/pages/music_library_page.dart.backup\" \"/Users/pchu/Desktop/小爱同学 /xiaomi_music_client/lib/presentation/pages/music_library_page.dart\")",
+      "Bash(flutter analyze --no-fatal-infos lib/presentation/pages/music_library_page.dart)"
+    ],
+    "deny": []
+  }
+}
