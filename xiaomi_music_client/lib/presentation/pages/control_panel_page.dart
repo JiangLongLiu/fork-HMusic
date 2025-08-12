@@ -827,6 +827,11 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
             min: 0,
             max: 100,
             onChanged: (value) {
+              // 先本地更新，避免频繁打到后端引起音箱多次响
+              ref.read(playbackProvider.notifier).setVolumeLocal(value.round());
+            },
+            onChangeEnd: (value) {
+              // 松手时再提交后端
               ref.read(playbackProvider.notifier).setVolume(value.round());
             },
           ),

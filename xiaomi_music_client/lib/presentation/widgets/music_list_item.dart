@@ -21,13 +21,13 @@ class MusicListItem extends StatelessWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
       decoration: BoxDecoration(
         color:
             isLight
                 ? Colors.black.withOpacity(0.03)
                 : Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color:
               isLight
@@ -42,13 +42,13 @@ class MusicListItem extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Row(
               children: [
                 // 音乐封面
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     color:
@@ -66,8 +66,8 @@ class MusicListItem extends StatelessWidget {
                               placeholder:
                                   (context, url) => const Center(
                                     child: SizedBox(
-                                      width: 16,
-                                      height: 16,
+                                      width: 12,
+                                      height: 12,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor:
@@ -81,18 +81,18 @@ class MusicListItem extends StatelessWidget {
                                   (context, url, error) => Icon(
                                     Icons.music_note_rounded,
                                     color: onSurface.withOpacity(0.6),
-                                    size: 24,
+                                    size: 18,
                                   ),
                             ),
                           )
                           : Icon(
                             Icons.music_note_rounded,
                             color: onSurface.withOpacity(0.6),
-                            size: 24,
+                            size: 18,
                           ),
                 ),
 
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
 
                 // 音乐信息
                 Expanded(
@@ -102,20 +102,20 @@ class MusicListItem extends StatelessWidget {
                       Text(
                         music.title ?? music.name,
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
                           color: onSurface.withOpacity(0.9),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       if (music.artist != null) ...[
                         Text(
                           music.artist!,
                           style: TextStyle(
                             color: onSurface.withOpacity(0.7),
-                            fontSize: 14,
+                            fontSize: 12,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -127,7 +127,7 @@ class MusicListItem extends StatelessWidget {
                           music.album!,
                           style: TextStyle(
                             color: onSurface.withOpacity(0.5),
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -136,7 +136,7 @@ class MusicListItem extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
 
                 // 操作按钮区域
                 if (trailing != null)
@@ -151,13 +151,13 @@ class MusicListItem extends StatelessWidget {
                       icon: const Icon(
                         Icons.play_arrow_rounded,
                         color: Color(0xFF667EEA),
-                        size: 24,
+                        size: 20,
                       ),
                       onPressed: onPlay,
                       tooltip: '播放',
                       constraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
+                        minWidth: 36,
+                        minHeight: 36,
                       ),
                     ),
                   ),

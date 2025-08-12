@@ -1,6 +1,11 @@
 import '../models/playlist.dart';
 
 class PlaylistAdapter {
+  /// 提取服务端真实播放列表名称（用于判定哪些可删除）
+  static List<String> extractNames(dynamic playlistNamesResponse) {
+    return _normalizeNames(playlistNamesResponse);
+  }
+
   /// 将 /playlistnames 响应与 /musiclist 聚合为 Playlist 列表
   static List<Playlist> mergeToPlaylists(
     dynamic playlistNamesResponse,

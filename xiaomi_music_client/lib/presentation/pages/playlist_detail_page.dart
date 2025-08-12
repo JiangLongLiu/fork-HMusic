@@ -52,71 +52,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         .playMusic(deviceId: did, musicName: musicName);
   }
 
-  Future<void> _showPlaylistDownloadDialog() async {
-    final urlController = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('下载播放列表：${widget.playlistName}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('请输入要下载的网络播放列表URL（可选）：'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: urlController,
-                  decoration: const InputDecoration(
-                    hintText: '例如：https://example.com/playlist.m3u',
-                    labelText: 'URL（可留空）',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed:
-                    () => Navigator.pop(context, urlController.text.trim()),
-                child: const Text('下载'),
-              ),
-            ],
-          ),
-    );
-
-    if (result != null) {
-      try {
-        await ref
-            .read(playlistProvider.notifier)
-            .downloadPlaylist(
-              widget.playlistName,
-              url: result.isEmpty ? null : result,
-            );
-        if (mounted) {
-          AppSnackBar.show(
-            context,
-            SnackBar(
-              content: Text('已提交下载任务：${widget.playlistName}'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          AppSnackBar.show(
-            context,
-            SnackBar(content: Text('下载失败：$e'), backgroundColor: Colors.red),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(playlistProvider);
@@ -136,22 +71,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             icon: const Icon(Icons.play_circle_fill_rounded),
             onPressed: _playWholePlaylist,
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              switch (value) {
-                case 'download':
-                  await _showPlaylistDownloadDialog();
-                  break;
-              }
-            },
-            itemBuilder:
-                (context) => [
-                  const PopupMenuItem(
-                    value: 'download',
-                    child: Text('整表下载到本地'),
-                  ),
-                ],
-          ),
         ],
       ),
       body:
@@ -167,16 +86,38 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               : ListView.builder(
                 padding: EdgeInsets.only(
                   bottom: AppLayout.contentBottomPadding(context),
-                  top: 12,
+                  top: 6,
                 ),
                 itemCount: musics.length,
                 itemBuilder: (context, index) {
                   final musicName = musics[index];
                   return ListTile(
-                    leading: const Icon(Icons.music_note_rounded),
-                    title: Text(musicName),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    dense: true,
+                    visualDensity: const VisualDensity(
+                      horizontal: -2,
+                      vertical: -2,
+                    ),
+                    minLeadingWidth: 0,
+                    leading: Icon(
+                      Icons.music_note_rounded,
+                      size: 18,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                    title: Text(
+                      musicName,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
                     trailing: IconButton(
                       icon: const Icon(Icons.play_arrow_rounded),
+                      iconSize: 22,
+                      color: Theme.of(context).colorScheme.primary,
                       onPressed: () => _playSingle(musicName),
                     ),
                     onTap: () => _playSingle(musicName),

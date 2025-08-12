@@ -122,13 +122,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         '小爱音乐',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color:
+                              isLight
+                                  ? const Color(0xFF2D3748) // 深色文字用于浅色主题
+                                  : Colors.white, // 白色文字用于深色主题
                           letterSpacing: 1.2,
+                          shadows:
+                              isLight
+                                  ? [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      offset: const Offset(0, 1),
+                                      blurRadius: 3,
+                                    ),
+                                  ]
+                                  : [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      offset: const Offset(0, 2),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -136,7 +155,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         '连接您的智能音响',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white.withOpacity(0.7),
+                          color:
+                              isLight
+                                  ? const Color(0xFF4A5568) // 深色副标题用于浅色主题
+                                  : Colors.white.withOpacity(
+                                    0.7,
+                                  ), // 半透明白色用于深色主题
                           fontWeight: FontWeight.w400,
                         ),
                       ),

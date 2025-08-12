@@ -7,6 +7,7 @@ import 'presentation/pages/settings/download_settings_page.dart';
 import 'presentation/pages/settings/download_tasks_page.dart';
 import 'presentation/pages/settings/ssh_settings_page.dart';
 import 'presentation/pages/settings/server_settings_page.dart';
+import 'presentation/pages/settings/source_settings_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 使用一个简单的根路由，内部由 AuthWrapper 判定跳转
@@ -39,6 +40,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/server',
         name: 'server_settings',
         builder: (context, state) => const ServerSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/source',
+        name: 'source_settings',
+        builder: (context, state) => const SourceSettingsPage(),
       ),
     ],
     debugLogDiagnostics: false,

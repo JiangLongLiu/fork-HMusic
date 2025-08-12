@@ -10,6 +10,8 @@ class PlaylistState {
   final String? error;
   final String? currentPlaylist;
   final List<String> currentPlaylistMusics;
+  // 服务端真实可删除的播放列表名称
+  final Set<String> deletablePlaylists;
 
   const PlaylistState({
     this.playlists = const [],
@@ -17,6 +19,7 @@ class PlaylistState {
     this.error,
     this.currentPlaylist,
     this.currentPlaylistMusics = const [],
+    this.deletablePlaylists = const {},
   });
 
   PlaylistState copyWith({
@@ -25,6 +28,7 @@ class PlaylistState {
     String? error,
     String? currentPlaylist,
     List<String>? currentPlaylistMusics,
+    Set<String>? deletablePlaylists,
   }) {
     return PlaylistState(
       playlists: playlists ?? this.playlists,
@@ -33,6 +37,7 @@ class PlaylistState {
       currentPlaylist: currentPlaylist ?? this.currentPlaylist,
       currentPlaylistMusics:
           currentPlaylistMusics ?? this.currentPlaylistMusics,
+      deletablePlaylists: deletablePlaylists ?? this.deletablePlaylists,
     );
   }
 }
@@ -67,11 +72,13 @@ class PlaylistNotifier extends StateNotifier<PlaylistState> {
       final resp = await apiService.getPlaylistNames();
       final fullMap = await apiService.getMusicList();
       final playlists = PlaylistAdapter.mergeToPlaylists(resp, fullMap);
+      final deletable = PlaylistAdapter.extractNames(resp).toSet();
 
       state = state.copyWith(
         playlists: playlists,
         isLoading: false,
         error: null,
+        deletablePlaylists: deletable,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

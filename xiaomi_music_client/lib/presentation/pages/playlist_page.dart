@@ -150,64 +150,173 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
               itemCount: playlistState.playlists.length,
               itemBuilder: (context, index) {
                 final playlist = playlistState.playlists[index];
+                final deletable = playlistState.deletablePlaylists.contains(
+                  playlist.name,
+                );
                 return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8.0),
+                  margin: const EdgeInsets.symmetric(vertical: 3.0),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  elevation: 2,
+                  elevation: 0.5,
                   child: ListTile(
+                    dense: true,
+                    visualDensity: const VisualDensity(
+                      horizontal: -2,
+                      vertical: -3,
+                    ),
+                    minLeadingWidth: 0,
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+                      horizontal: 12,
+                      vertical: 4,
                     ),
                     leading: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
-                        ).colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        ).colorScheme.primary.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.queue_music_rounded,
                         color: Theme.of(context).colorScheme.primary,
+                        size: 20,
                       ),
                     ),
                     title: Text(
                       playlist.name,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
                       ),
                     ),
                     subtitle: Text(
                       '${playlist.count ?? 0}首歌曲',
                       style: TextStyle(
+                        fontSize: 12,
                         color: Theme.of(
                           context,
                         ).colorScheme.onSurface.withOpacity(0.6),
                       ),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.play_circle_fill_rounded),
-                      color: Theme.of(context).colorScheme.primary,
-                      iconSize: 32,
-                      onPressed: () async {
-                        final did = ref.read(deviceProvider).selectedDeviceId;
-                        if (did == null) {
-                          if (mounted) {
-                            AppSnackBar.showText(context, '请先在控制页选择播放设备');
-                          }
-                          return;
-                        }
-                        await ref
-                            .read(playlistProvider.notifier)
-                            .playPlaylist(
-                              deviceId: did,
-                              playlistName: playlist.name,
-                            );
-                      },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.play_circle_fill_rounded),
+                          color: Theme.of(context).colorScheme.primary,
+                          iconSize: 20,
+                          tooltip: '播放列表',
+                          onPressed: () async {
+                            final did =
+                                ref.read(deviceProvider).selectedDeviceId;
+                            if (did == null) {
+                              if (mounted) {
+                                AppSnackBar.showText(context, '请先在控制页选择播放设备');
+                              }
+                              return;
+                            }
+                            await ref
+                                .read(playlistProvider.notifier)
+                                .playPlaylist(
+                                  deviceId: did,
+                                  playlistName: playlist.name,
+                                );
+                          },
+                        ),
+                        PopupMenuButton<String>(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          onSelected: (value) async {
+                            switch (value) {
+                              case 'open':
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => PlaylistDetailPage(
+                                          playlistName: playlist.name,
+                                        ),
+                                  ),
+                                );
+                                break;
+                              case 'delete':
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder:
+                                      (ctx) => AlertDialog(
+                                        title: const Text('删除列表'),
+                                        content: Text(
+                                          '确定删除 "${playlist.name}" 吗？此操作不可撤销。',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.pop(ctx, false),
+                                            child: const Text('取消'),
+                                          ),
+                                          FilledButton(
+                                            onPressed:
+                                                () => Navigator.pop(ctx, true),
+                                            child: const Text('删除'),
+                                          ),
+                                        ],
+                                      ),
+                                );
+                                if (ok == true) {
+                                  try {
+                                    await ref
+                                        .read(playlistProvider.notifier)
+                                        .deletePlaylist(playlist.name);
+                                    if (mounted) {
+                                      AppSnackBar.show(
+                                        context,
+                                        SnackBar(
+                                          content: Text(
+                                            '已删除列表：${playlist.name}',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      AppSnackBar.show(
+                                        context,
+                                        SnackBar(
+                                          content: Text('删除失败：$e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                                break;
+                            }
+                          },
+                          itemBuilder:
+                              (context) => [
+                                const PopupMenuItem(
+                                  value: 'open',
+                                  child: Text('打开'),
+                                ),
+                                if (deletable)
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('删除列表'),
+                                  ),
+                              ],
+                          icon: Icon(
+                            Icons.more_vert_rounded,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.7),
+                            size: 18,
+                          ),
+                        ),
+                      ],
                     ),
                     onTap: () {
                       Navigator.of(context).push(

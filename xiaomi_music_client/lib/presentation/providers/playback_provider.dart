@@ -116,7 +116,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
 
   // 设备加载由 deviceProvider 负责
 
-  Future<void> refreshStatus() async {
+  Future<void> refreshStatus({bool silent = false}) async {
     final apiService = ref.read(apiServiceProvider);
     final selectedDid = ref.read(deviceProvider).selectedDeviceId;
     if (apiService == null || selectedDid == null) {
@@ -129,7 +129,9 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     }
 
     try {
-      state = state.copyWith(isLoading: true);
+      if (!silent) {
+        state = state.copyWith(isLoading: true);
+      }
       print('🎵 正在获取播放状态...');
 
       // 直接使用播放状态API获取完整信息
@@ -161,7 +163,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
         currentMusic: currentMusic,
         volume: volume,
         error: null,
-        isLoading: false,
+        isLoading: silent ? state.isLoading : false,
         hasLoaded: true,
       );
 
@@ -178,7 +180,10 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
       } else {
         state = state.copyWith(error: errorMessage);
       }
-      state = state.copyWith(isLoading: false, hasLoaded: true);
+      state = state.copyWith(
+        isLoading: silent ? state.isLoading : false,
+        hasLoaded: true,
+      );
     }
   }
 
@@ -238,7 +243,8 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     if (apiService == null || selectedDid == null) return;
 
     try {
-      state = state.copyWith(isLoading: true);
+      // 非阻塞式更新，保持按钮不长时间在 loading，交互更顺滑
+      state = state.copyWith(isLoading: false);
 
       print('🎵 执行播放命令');
 
@@ -246,8 +252,11 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
       await apiService.resumeMusic(did: selectedDid);
 
       // 等待一下看是否生效
-      await Future.delayed(const Duration(milliseconds: 800));
-      await refreshStatus();
+      // 延迟刷新但不设置 isLoading，避免按钮长时间 loading
+      Future.delayed(
+        const Duration(milliseconds: 800),
+        () => refreshStatus(silent: true),
+      );
 
       // 如果还是没有播放，尝试播放当前歌曲
       if (state.currentMusic != null && !(state.currentMusic!.isPlaying)) {
@@ -262,11 +271,13 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
           musicName: currentMusic,
         );
 
-        await Future.delayed(const Duration(milliseconds: 1000));
-        await refreshStatus();
+        Future.delayed(
+          const Duration(milliseconds: 1000),
+          () => refreshStatus(silent: true),
+        );
       }
 
-      state = state.copyWith(isLoading: false);
+      // 结束时不强制 loading 状态
     } catch (e) {
       print('🎵 播放失败: $e');
       state = state.copyWith(isLoading: false, error: '播放失败: ${e.toString()}');
@@ -279,7 +290,8 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     if (apiService == null || selectedDid == null) return;
 
     try {
-      state = state.copyWith(isLoading: true);
+      // 避免按钮长时间 loading，采用轻量刷新
+      state = state.copyWith(isLoading: false);
 
       final isPlaying = state.currentMusic?.isPlaying ?? false;
 
@@ -292,10 +304,12 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
       }
 
       // 等待命令执行后刷新状态
-      await Future.delayed(const Duration(milliseconds: 1000));
-      await refreshStatus();
+      Future.delayed(
+        const Duration(milliseconds: 1000),
+        () => refreshStatus(silent: true),
+      );
 
-      state = state.copyWith(isLoading: false);
+      // 不把按钮锁在 loading
     } catch (e) {
       print('🎵 播放控制失败: $e');
       state = state.copyWith(
@@ -371,6 +385,11 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     }
   }
 
+  // 即时更新 UI 的本地音量值，不触发后端调用
+  void setVolumeLocal(int volume) {
+    state = state.copyWith(volume: volume);
+  }
+
   Future<void> seekTo(int seconds) async {
     final apiService = ref.read(apiServiceProvider);
     final selectedDid = ref.read(deviceProvider).selectedDeviceId;
@@ -378,7 +397,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     try {
       await apiService.seek(did: selectedDid, seconds: seconds);
       await Future.delayed(const Duration(milliseconds: 500));
-      await refreshStatus();
+      await refreshStatus(silent: true);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
@@ -468,7 +487,10 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
       state = state.copyWith(playMode: nextMode, isLoading: false);
 
       // 延迟刷新状态以确认模式切换
-      Future.delayed(const Duration(milliseconds: 500), () => refreshStatus());
+      Future.delayed(
+        const Duration(milliseconds: 500),
+        () => refreshStatus(silent: true),
+      );
     } catch (e) {
       print('🎵 播放模式切换失败: $e');
       state = state.copyWith(
@@ -482,9 +504,9 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     _statusRefreshTimer?.cancel();
 
     if (isPlaying) {
-      // 每3秒刷新一次播放状态和进度
+      // 每3秒刷新一次播放状态和进度（静默刷新，不影响按钮loading）
       _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-        refreshStatus();
+        refreshStatus(silent: true);
       });
     }
   }

@@ -560,9 +560,6 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
           case 'play':
             _playMusic(music.name);
             break;
-          case 'download':
-            _showMusicDownloadDialog(music.name);
-            break;
           case 'delete':
             _deleteMusic(music.name);
             break;
@@ -580,20 +577,6 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
                   Icon(Icons.play_arrow_rounded, color: Colors.green, size: 20),
                   const SizedBox(width: 12),
                   const Text('播放'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'download',
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.download_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  const Text('下载到本地'),
                 ],
               ),
             ),
@@ -729,67 +712,5 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
             ],
           ),
     );
-  }
-
-  Future<void> _showMusicDownloadDialog(String musicName) async {
-    final urlController = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('下载音乐：$musicName'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('请输入要下载的网络音乐URL（可选）：'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: urlController,
-                  decoration: const InputDecoration(
-                    hintText: '例如：https://example.com/music.mp3',
-                    labelText: 'URL（可留空）',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed:
-                    () => Navigator.pop(context, urlController.text.trim()),
-                child: const Text('下载'),
-              ),
-            ],
-          ),
-    );
-
-    if (result != null) {
-      try {
-        await ref
-            .read(musicLibraryProvider.notifier)
-            .downloadOneMusic(musicName, url: result.isEmpty ? null : result);
-        if (mounted) {
-          AppSnackBar.show(
-            context,
-            SnackBar(
-              content: Text('已提交下载任务：$musicName'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          AppSnackBar.show(
-            context,
-            SnackBar(content: Text('下载失败：$e'), backgroundColor: Colors.red),
-          );
-        }
-      }
-    }
   }
 }

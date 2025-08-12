@@ -3,9 +3,9 @@ class AppConstants {
   static const String version = '1.0.0';
 
   // 网络配置
-  static const int connectTimeout = 10;
-  static const int receiveTimeout = 15;
-  static const int sendTimeout = 10;
+  static const int connectTimeout = 20;
+  static const int receiveTimeout = 25;
+  static const int sendTimeout = 20;
 
   // 默认配置
   static const String defaultServerUrl = 'http://192.168.31.2:58090';

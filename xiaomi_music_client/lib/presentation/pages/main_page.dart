@@ -4,14 +4,16 @@ import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/music_search_provider.dart';
 import 'control_panel_page.dart';
-import 'music_search_page.dart';
 import 'playlist_page.dart';
+import 'music_search_page.dart';
+import '../providers/music_search_provider.dart';
 import 'music_library_page.dart';
 import '../providers/auth_provider.dart';
 import '../providers/music_library_provider.dart';
 import '../widgets/app_snackbar.dart';
+import '../providers/ssh_settings_provider.dart';
+import '../providers/playlist_provider.dart';
 
 class MainPage extends ConsumerStatefulWidget {
   const MainPage({super.key});
@@ -40,20 +42,7 @@ class _MainPageState extends ConsumerState<MainPage> {
     });
   }
 
-  void _onSearchChanged(String query) {
-    if (query.trim().isEmpty) {
-      ref.read(musicSearchProvider.notifier).clearSearch();
-    } else {
-      // Debounce the search to avoid excessive API calls
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (_searchController.text == query) {
-          ref.read(musicSearchProvider.notifier).searchMusic(query);
-        }
-      });
-    }
-    // Rebuild to show/hide clear button
-    setState(() {});
-  }
+  // 搜索页已移除
 
   @override
   void dispose() {
@@ -177,6 +166,9 @@ class _MainPageState extends ConsumerState<MainPage> {
               ),
               onSelected: (value) {
                 switch (value) {
+                  case 'download_from_link':
+                    _showDownloadFromLinkDialog();
+                    break;
                   case 'download_settings':
                     context.push('/settings/download');
                     break;
@@ -189,6 +181,9 @@ class _MainPageState extends ConsumerState<MainPage> {
                   case 'server_settings':
                     context.push('/settings/server');
                     break;
+                  case 'source_settings':
+                    context.push('/settings/source');
+                    break;
                   case 'logout':
                     ref.read(authProvider.notifier).logout();
                     break;
@@ -196,6 +191,40 @@ class _MainPageState extends ConsumerState<MainPage> {
               },
               itemBuilder:
                   (context) => [
+                    PopupMenuItem(
+                      value: 'download_from_link',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.link_rounded,
+                            color: onSurface.withOpacity(0.8),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '从链接下载',
+                            style: TextStyle(color: onSurface.withOpacity(0.9)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'source_settings',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.audio_file_rounded,
+                            color: onSurface.withOpacity(0.8),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '音源设置',
+                            style: TextStyle(color: onSurface.withOpacity(0.9)),
+                          ),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'download_tasks',
                       child: Row(
@@ -292,71 +321,60 @@ class _MainPageState extends ConsumerState<MainPage> {
 
   Widget _buildSecondarySection() {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    Widget content;
-
-    // Only show the search bar on the search page (_selectedIndex == 1)
-    // and device selection on the control page (_selectedIndex == 0)
-    switch (_selectedIndex) {
-      case 0:
-        // Use a placeholder for device selection as it's part of ControlPanelPage
-        content =
-            const SizedBox.shrink(); // This will be handled inside ControlPanelPage
-        break;
-      case 1:
-        content = TextField(
-          key: const ValueKey(
-            'main_search_field',
-          ), // Unique key for main page search
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          style: TextStyle(color: onSurface),
-          decoration: InputDecoration(
-            hintText: '搜索歌曲、专辑或艺术家...',
-            hintStyle: TextStyle(color: onSurface.withOpacity(0.5)),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              color: onSurface.withOpacity(0.6),
-            ),
-            suffixIcon:
-                _searchController.text.isNotEmpty
-                    ? IconButton(
-                      icon: Icon(
-                        Icons.clear_rounded,
-                        color: onSurface.withOpacity(0.6),
-                      ),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
-                      },
-                    )
-                    : null,
-            filled: true,
-            fillColor: onSurface.withOpacity(0.05),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 0,
-              horizontal: 16,
-            ),
-          ),
-          onSubmitted: (value) {
-            ref.read(musicSearchProvider.notifier).searchMusic(value);
-          },
-        );
-        break;
-      default:
-        // For all other tabs, show nothing in this section.
-        content = const SizedBox.shrink();
-        break;
+    if (_selectedIndex != 1) {
+      return Container(
+        key: ValueKey<String>('secondary_section_$_selectedIndex'),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        child: const SizedBox.shrink(),
+      );
     }
-
     return Container(
-      // 固定样式，避免动画带来的断言问题和抖动
       key: ValueKey<String>('secondary_section_$_selectedIndex'),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-      child: content,
+      child: TextField(
+        key: const ValueKey('online_search_field'),
+        controller: _searchController,
+        onChanged: (value) {
+          Future.delayed(const Duration(milliseconds: 350), () {
+            if (_searchController.text == value) {
+              ref.read(musicSearchProvider.notifier).searchOnline(value);
+            }
+          });
+        },
+        style: TextStyle(color: onSurface),
+        decoration: InputDecoration(
+          hintText: '在线搜索歌曲...',
+          hintStyle: TextStyle(color: onSurface.withOpacity(0.5)),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: onSurface.withOpacity(0.6),
+          ),
+          suffixIcon:
+              _searchController.text.isNotEmpty
+                  ? IconButton(
+                    icon: Icon(
+                      Icons.clear_rounded,
+                      color: onSurface.withOpacity(0.6),
+                    ),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(musicSearchProvider.notifier).clearSearch();
+                      setState(() {});
+                    },
+                  )
+                  : null,
+          filled: true,
+          fillColor: onSurface.withOpacity(0.05),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16.0),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 0,
+            horizontal: 16,
+          ),
+        ),
+      ),
     );
   }
 
@@ -555,6 +573,161 @@ class _MainPageState extends ConsumerState<MainPage> {
     }
   }
 
+  Future<void> _showDownloadFromLinkDialog() async {
+    final singleNameController = TextEditingController();
+    final singleUrlController = TextEditingController();
+    final listNameController = TextEditingController();
+    final listUrlController = TextEditingController();
+
+    Map<String, String>? result;
+
+    result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) {
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: const Text('从链接下载到服务器'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const TabBar(tabs: [Tab(text: '单曲'), Tab(text: '合集')]),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 200,
+                    child: TabBarView(
+                      children: [
+                        // 单曲
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: singleNameController,
+                              decoration: const InputDecoration(
+                                labelText: '歌曲名',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: singleUrlController,
+                              decoration: const InputDecoration(
+                                labelText: '歌曲链接 URL',
+                                hintText: '例如：https://example.com/music.mp3',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
+                        // 合集
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: listNameController,
+                              decoration: const InputDecoration(
+                                labelText: '保存目录名（播放列表名）',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: listUrlController,
+                              decoration: const InputDecoration(
+                                labelText: '合集/歌单链接 URL',
+                                hintText: '例如：https://example.com/playlist',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final controller = DefaultTabController.of(context);
+                  final isPlaylist = (controller.index) == 1;
+                  if (isPlaylist) {
+                    final name = listNameController.text.trim();
+                    final url = listUrlController.text.trim();
+                    if (name.isEmpty || url.isEmpty) return;
+                    Navigator.pop<Map<String, String>>(context, {
+                      'type': 'playlist',
+                      'name': name,
+                      'url': url,
+                    });
+                  } else {
+                    final name = singleNameController.text.trim();
+                    final url = singleUrlController.text.trim();
+                    if (name.isEmpty || url.isEmpty) return;
+                    Navigator.pop<Map<String, String>>(context, {
+                      'type': 'single',
+                      'name': name,
+                      'url': url,
+                    });
+                  }
+                },
+                child: const Text('下载'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || result == null) return;
+
+    try {
+      if (result['type'] == 'single') {
+        await ref
+            .read(musicLibraryProvider.notifier)
+            .downloadOneMusic(result['name']!, url: result['url']);
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            const SnackBar(
+              content: Text('已提交单曲下载任务'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (result['type'] == 'playlist') {
+        await ref
+            .read(playlistProvider.notifier)
+            .downloadPlaylist(result['name']!, url: result['url']);
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            const SnackBar(
+              content: Text('已提交整表下载任务'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          SnackBar(content: Text('下载失败：$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _uploadFiles(List<PlatformFile> files) async {
     try {
       // Show progress dialog
@@ -575,17 +748,62 @@ class _MainPageState extends ConsumerState<MainPage> {
             ),
       );
 
-      await ref.read(musicLibraryProvider.notifier).uploadMusics(files);
+      final ssh = ref.read(sshSettingsProvider);
+      final useHttp = ssh.useHttpUpload;
+      bool ok = false;
+      String mode = useHttp ? 'HTTP' : 'SCP';
+
+      if (useHttp) {
+        try {
+          await ref.read(musicLibraryProvider.notifier).uploadMusics(files);
+          ok = true;
+        } catch (e) {
+          // HTTP 失败则回退到 SCP
+          try {
+            await ref
+                .read(musicLibraryProvider.notifier)
+                .uploadViaScp(
+                  host: ssh.host,
+                  port: ssh.port,
+                  username: ssh.username,
+                  password: ssh.password,
+                  remoteDir: '/opt/xiaomusic/music',
+                  files: files,
+                  subDir: ssh.subDir,
+                );
+            ok = true;
+            mode = 'SCP(回退)';
+          } catch (_) {
+            rethrow;
+          }
+        }
+      } else {
+        await ref
+            .read(musicLibraryProvider.notifier)
+            .uploadViaScp(
+              host: ssh.host,
+              port: ssh.port,
+              username: ssh.username,
+              password: ssh.password,
+              remoteDir: '/opt/xiaomusic/music',
+              files: files,
+              subDir: ssh.subDir,
+            );
+        ok = true;
+        mode = 'SCP';
+      }
 
       if (mounted) {
         Navigator.pop(context); // Close progress dialog
-        AppSnackBar.show(
-          context,
-          SnackBar(
-            content: Text('成功上传 ${files.length} 个文件'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (ok) {
+          AppSnackBar.show(
+            context,
+            SnackBar(
+              content: Text('$mode 上传成功：${files.length} 个文件'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
