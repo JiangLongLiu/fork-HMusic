@@ -180,7 +180,7 @@ class MusicSearchNotifier extends StateNotifier<MusicSearchState> {
     try {
       print('🎵 [MusicSearch] JS音源模式');
 
-      // 先尝试：隐藏 WebView JS（适配落雪/野草🌾）
+      // 先尝试：隐藏 WebView JS
       try {
         final webSvc = await ref.read(webviewJsSourceServiceProvider.future);
         if (webSvc != null) {

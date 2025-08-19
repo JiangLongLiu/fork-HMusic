@@ -250,11 +250,7 @@ class WebViewJsSourceService {
     }
   }
 
-  /// 加载内置脚本（已不再使用grass，保留空实现以兼容旧流程）
-  Future<String?> _loadBuiltinScript() async {
-    print('ℹ️ [WebViewJsSource] 内置脚本加载已禁用（grass移除）');
-    return null;
-  }
+  // 内置脚本加载已完全移除
 
   Future<String?> _downloadScriptWithFallback(List<String> urls) async {
     final dio = Dio(
@@ -533,10 +529,10 @@ class WebViewJsSourceService {
           final isLxApi =
               lowerUrl.contains('/url/') || lowerUrl.contains('/search/');
           if (isLxApi) {
-            // 检查是否有有效的API密钥
+            // 尝试使用提取的API密钥；若为空，则使用已知默认密钥 share-v2 作为回退
             if (_currentApiKey == null || _currentApiKey!.isEmpty) {
-              print('❌ [NetworkBridge] 缺少有效API密钥，拒绝请求: $url');
-              throw Exception('缺少有效的API密钥，无法访问LX Music API');
+              print('⚠️ [NetworkBridge] 未提取到API密钥，使用默认密钥 share-v2');
+              _currentApiKey = 'share-v2';
             }
 
             headers.putIfAbsent('X-Request-Key', () => _currentApiKey!);
@@ -695,13 +691,9 @@ class WebViewJsSourceService {
         print('🎯 [WebViewJsSource] 用户选择脚本: ${settings.scriptUrl}');
         scriptText = await _downloadScriptWithFallback(urls);
       } else if (settings.useBuiltinScript) {
-        // 只有在用户没有选择具体脚本时才使用内置野草源
-        print('🌾 [WebViewJsSource] 使用内置野草源');
-        scriptText = await _loadBuiltinScript();
-        if (scriptText == null || scriptText.isEmpty) {
-          print('⚠️ [WebViewJsSource] 内置脚本加载失败，回退到远程脚本');
-          scriptText = await _downloadScriptWithFallback(urls);
-        }
+        // 内置脚本加载已禁用（grass移除），直接使用远程脚本
+        print('ℹ️ [WebViewJsSource] 内置脚本已禁用，改用远程脚本');
+        scriptText = await _downloadScriptWithFallback(urls);
       } else {
         // 默认使用远程脚本
         print('🌐 [WebViewJsSource] 使用远程脚本');
