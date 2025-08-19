@@ -84,32 +84,47 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
 
   Widget _buildInitialState() {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    return Center(
-      key: const ValueKey('search_initial'),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_rounded,
-            size: 80,
-            color: onSurface.withOpacity(0.3),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '开始搜索音乐',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: onSurface.withOpacity(0.8),
+    return Column(
+      children: [
+        // 模拟曲库页面的顶部布局间距，保持垂直位置一致
+        const SizedBox(height: 20), // 对应曲库页面的顶部间距
+        const SizedBox(height: 40), // 模拟搜索框高度 (TextField实际高度)
+        const SizedBox(height: 16), // 对应曲库页面搜索框后的间距
+        const SizedBox(height: 32), // 模拟统计信息区域的高度
+        const SizedBox(height: 8), // 对应曲库页面统计信息后的间距
+        Expanded(
+          child: Center(
+            key: const ValueKey('search_initial'),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  size: 80,
+                  color: onSurface.withOpacity(0.3),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '开始搜索音乐',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: onSurface.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '输入歌曲、艺术家或专辑名称',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: onSurface.withOpacity(0.6),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '输入歌曲、艺术家或专辑名称',
-            style: TextStyle(fontSize: 16, color: onSurface.withOpacity(0.6)),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -281,7 +296,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       // 使用"歌曲名 - 作者名"作为服务端下载名称
       final safeTitle = item.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final safeAuthor = item.author.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final serverName = safeAuthor.isNotEmpty ? '$safeTitle - $safeAuthor' : safeTitle;
+      final serverName =
+          safeAuthor.isNotEmpty ? '$safeTitle - $safeAuthor' : safeTitle;
 
       await ref
           .read(musicLibraryProvider.notifier)
@@ -330,7 +346,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
           await getApplicationDocumentsDirectory();
       final titlePart = item.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final authorPart = item.author.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final safeName = authorPart.isNotEmpty ? '$titlePart - $authorPart' : titlePart;
+      final safeName =
+          authorPart.isNotEmpty ? '$titlePart - $authorPart' : titlePart;
       final ext = p.extension(Uri.parse(url).path);
       final filePath = p.join(
         dir.path,

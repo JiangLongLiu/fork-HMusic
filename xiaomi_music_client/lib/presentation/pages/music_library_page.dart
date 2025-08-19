@@ -145,10 +145,11 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
       key: const ValueKey('music_library_scaffold'),
       resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      floatingActionButton: libraryState.isSelectionMode && 
-                            libraryState.selectedMusicNames.isNotEmpty
-          ? _buildFloatingDeleteButton(libraryState)
-          : null,
+      floatingActionButton:
+          libraryState.isSelectionMode &&
+                  libraryState.selectedMusicNames.isNotEmpty
+              ? _buildFloatingDeleteButton(libraryState)
+              : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: RefreshIndicator(
         key: const ValueKey('music_library_refresh'),
@@ -179,47 +180,37 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
 
   Widget _buildHeader(Color onSurface) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: onSurface.withOpacity(0.1), width: 1),
-        ),
-        child: TextField(
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          style: TextStyle(
-            color: onSurface,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _onSearchChanged,
+        style: TextStyle(color: onSurface),
+        decoration: InputDecoration(
+          hintText: '搜索本地音乐...',
+          hintStyle: TextStyle(color: onSurface.withOpacity(0.5)),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: onSurface.withOpacity(0.6),
           ),
-          decoration: InputDecoration(
-            hintText: '搜索本地音乐...',
-            hintStyle: TextStyle(
-              color: onSurface.withOpacity(0.5),
-              fontSize: 16,
-            ),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              color: onSurface.withOpacity(0.6),
-              size: 22,
-            ),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
+          suffixIcon:
+              _searchController.text.isNotEmpty
+                  ? IconButton(
                     icon: Icon(
                       Icons.clear_rounded,
                       color: onSurface.withOpacity(0.6),
-                      size: 20,
                     ),
                     onPressed: _clearSearch,
                   )
-                : null,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
+                  : null,
+          filled: true,
+          fillColor: onSurface.withOpacity(0.05),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16.0),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 8,
+            horizontal: 16,
           ),
         ),
       ),
@@ -280,19 +271,16 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
               style: TextStyle(color: onSurface.withOpacity(0.6), fontSize: 13),
             ),
           ],
-          
+
           const Spacer(),
-          
+
           // 批量选择按钮
           if (libraryState.filteredMusicList.isNotEmpty)
             Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: onSurface.withOpacity(0.1), 
-                  width: 1,
-                ),
+                border: Border.all(color: onSurface.withOpacity(0.1), width: 1),
               ),
               child: IconButton(
                 visualDensity: VisualDensity.compact,
@@ -313,10 +301,11 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
   }
 
   Widget _buildSelectionBar(MusicLibraryState libraryState, Color onSurface) {
-    final isAllSelected = libraryState.selectedMusicNames.length == 
-                         libraryState.filteredMusicList.length &&
-                         libraryState.filteredMusicList.isNotEmpty;
-    
+    final isAllSelected =
+        libraryState.selectedMusicNames.length ==
+            libraryState.filteredMusicList.length &&
+        libraryState.filteredMusicList.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -347,9 +336,9 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
               ),
             ),
           ),
-          
+
           const Spacer(),
-          
+
           // 选中数量显示
           Text(
             '已选中 ${libraryState.selectedMusicNames.length} 项',
@@ -359,9 +348,9 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
               fontWeight: FontWeight.w500,
             ),
           ),
-          
+
           const Spacer(),
-          
+
           // 关闭按钮
           GestureDetector(
             onTap: () {
@@ -382,7 +371,7 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
     return Container(
       margin: const EdgeInsets.only(
         bottom: 120, // 向上移动更多，避免遮挡最后一个选择框
-        right: 56,   // 调整位置使按钮中心与选择框中心对齐
+        right: 56, // 调整位置使按钮中心与选择框中心对齐
       ),
       child: FloatingActionButton(
         onPressed: () => _showBatchDeleteDialog(libraryState),
@@ -491,33 +480,30 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Center(
       key: const ValueKey('music_library_empty'),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.library_music_outlined,
-              size: 100,
-              color: onSurface.withOpacity(0.3),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.library_music_outlined,
+            size: 80,
+            color: onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '音乐库为空',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: onSurface.withOpacity(0.8),
             ),
-            const SizedBox(height: 24),
-            Text(
-              '音乐库为空',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: onSurface,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '尚未找到任何音乐文件\n请先添加音乐到您的设备',
-              style: TextStyle(fontSize: 16, color: onSurface.withOpacity(0.6)),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '尚未找到任何音乐文件\n请先添加音乐到您的设备',
+            style: TextStyle(fontSize: 16, color: onSurface.withOpacity(0.6)),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -566,7 +552,10 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
     );
   }
 
-  Widget _buildMusicList(List<dynamic> musicList, MusicLibraryState libraryState) {
+  Widget _buildMusicList(
+    List<dynamic> musicList,
+    MusicLibraryState libraryState,
+  ) {
     return FadeTransition(
       key: const ValueKey('music_library_list'),
       opacity: _listAnimationController,
@@ -608,15 +597,18 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
                 music: music,
                 onTap: () {
                   if (libraryState.isSelectionMode) {
-                    ref.read(musicLibraryProvider.notifier).toggleMusicSelection(music.name);
+                    ref
+                        .read(musicLibraryProvider.notifier)
+                        .toggleMusicSelection(music.name);
                   } else {
                     _playMusic(music.name);
                   }
                 },
                 onPlay: () => _playMusic(music.name),
-                trailing: libraryState.isSelectionMode 
-                    ? _buildSelectionCheckbox(music, libraryState)
-                    : _buildMusicItemMenu(music),
+                trailing:
+                    libraryState.isSelectionMode
+                        ? _buildSelectionCheckbox(music, libraryState)
+                        : _buildMusicItemMenu(music),
               ),
             ),
           );
@@ -697,18 +689,21 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
     );
   }
 
-  Widget _buildSelectionCheckbox(dynamic music, MusicLibraryState libraryState) {
+  Widget _buildSelectionCheckbox(
+    dynamic music,
+    MusicLibraryState libraryState,
+  ) {
     final isSelected = libraryState.selectedMusicNames.contains(music.name);
     return Container(
       padding: const EdgeInsets.all(8),
       child: Checkbox(
         value: isSelected,
         onChanged: (value) {
-          ref.read(musicLibraryProvider.notifier).toggleMusicSelection(music.name);
+          ref
+              .read(musicLibraryProvider.notifier)
+              .toggleMusicSelection(music.name);
         },
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     );
   }
@@ -716,49 +711,51 @@ class _MusicLibraryPageState extends ConsumerState<MusicLibraryPage>
   void _showBatchDeleteDialog(MusicLibraryState libraryState) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          '批量删除音乐',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          '确定要删除选中的 ${libraryState.selectedMusicNames.length} 首音乐吗？\n\n此操作不可撤销。',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              '取消',
-              style: TextStyle(color: Color(0xFF667EEA)),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1C1C1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await ref.read(musicLibraryProvider.notifier).deleteSelectedMusic();
-              if (mounted) {
-                AppSnackBar.show(
-                  context,
-                  SnackBar(
-                    content: Text('已删除 ${libraryState.selectedMusicNames.length} 首音乐'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+            title: const Text('批量删除音乐', style: TextStyle(color: Colors.white)),
+            content: Text(
+              '确定要删除选中的 ${libraryState.selectedMusicNames.length} 首音乐吗？\n\n此操作不可撤销。',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
             ),
-            child: const Text('删除'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  '取消',
+                  style: TextStyle(color: Color(0xFF667EEA)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await ref
+                      .read(musicLibraryProvider.notifier)
+                      .deleteSelectedMusic();
+                  if (mounted) {
+                    AppSnackBar.show(
+                      context,
+                      SnackBar(
+                        content: Text(
+                          '已删除 ${libraryState.selectedMusicNames.length} 首音乐',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('删除'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 

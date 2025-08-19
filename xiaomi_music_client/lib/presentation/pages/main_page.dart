@@ -370,7 +370,7 @@ class _MainPageState extends ConsumerState<MainPage> {
             borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(
-            vertical: 0,
+            vertical: 8,
             horizontal: 16,
           ),
         ),
