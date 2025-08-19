@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/services.dart';
 import '../../presentation/providers/source_settings_provider.dart';
 import 'dart:convert';
-import 'grass_source_decoder.dart';
+// grass 支持已移除
 
 class LocalJsSourceService {
   final JavascriptRuntime _rt;
@@ -32,58 +31,9 @@ class LocalJsSourceService {
     return LocalJsSourceService._(getJavascriptRuntime(), dio);
   }
 
-  /// 加载内置脚本
+  /// 加载内置脚本（已禁用 grass）
   Future<String?> _loadBuiltinScript() async {
-    // 优先：尝试落雪（野草🌾）音乐源最新版本（多镜像）
-    try {
-      print('[XMC] 📦 [LocalJsSource] 内置优先：下载落雪（野草🌾）源 latest.js');
-      final mirrors = <String>[
-        'https://ghproxy.net/raw.githubusercontent.com/pdone/lx-music-source/main/grass/latest.js',
-        'https://raw.githubusercontent.com/pdone/lx-music-source/main/grass/latest.js',
-        'https://cdn.jsdelivr.net/gh/pdone/lx-music-source/grass/latest.js',
-        'https://fastly.jsdelivr.net/gh/pdone/lx-music-source/grass/latest.js',
-        'https://gcore.jsdelivr.net/gh/pdone/lx-music-source/grass/latest.js',
-        'https://testingcf.jsdelivr.net/gh/pdone/lx-music-source/grass/latest.js',
-      ];
-      for (final u in mirrors) {
-        try {
-          final resp = await _http.get<String>(
-            u,
-            options: Options(
-              responseType: ResponseType.plain,
-              sendTimeout: const Duration(seconds: 8),
-              receiveTimeout: const Duration(seconds: 12),
-              validateStatus:
-                  (code) => code != null && code >= 200 && code < 400,
-              headers: {
-                'Accept':
-                    'text/javascript,application/javascript;q=0.9,*/*;q=0.1',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
-                'User-Agent': 'xiaoaitongxue-localjs-loader',
-              },
-            ),
-          );
-          final text = resp.data ?? '';
-          if (text.isNotEmpty) {
-            print(
-              '[XMC] ✅ [LocalJsSource] 落雪（野草🌾）脚本下载成功(${u.split('/')[2]}), 长度: ${text.length}',
-            );
-            // 使用解码器处理可能的混淆
-            return GrassSourceDecoder.decodeAndPrepareScript(text);
-          }
-        } catch (_) {
-          // 尝试下一个镜像
-          continue;
-        }
-      }
-      print('[XMC] ⚠️ [LocalJsSource] 野草🌾源下载失败，回退到旧的本地资产脚本');
-    } catch (e) {
-      print('[XMC] ⚠️ [LocalJsSource] 下载落雪（野草🌾）源异常: $e');
-    }
-
-    // 本地脚本已移除，不再支持
-    print('[XMC] ❌ [LocalJsSource] 本地脚本已移除，不再支持');
+    print('[XMC] ℹ️ [LocalJsSource] 内置脚本加载已禁用（grass移除）');
     return null;
   }
 
