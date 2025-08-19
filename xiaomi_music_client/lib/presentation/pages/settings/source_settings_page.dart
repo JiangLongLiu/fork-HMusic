@@ -32,14 +32,15 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
     if (_initialized) return;
     _apiCtrl.text = s.unifiedApiBase;
     _platform = s.platform == 'auto' ? 'qq' : s.platform;
-    
+
     // 隐藏内置脚本的真实地址，只在自定义时显示
     if (s.scriptPreset == 'custom') {
       _jsCtrl.text = s.scriptUrl;
     } else {
-      _jsCtrl.text = '内置脚本 (${s.scriptPreset}.js)';
+      final displayName = s.scriptPreset == 'xiaoqiu' ? '小秋音乐' : s.scriptPreset;
+      _jsCtrl.text = '内置脚本 ($displayName)';
     }
-    
+
     _primary = s.primarySource;
     _scriptPreset = s.scriptPreset;
     _initialized = true;
@@ -258,7 +259,7 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
                           items: const [
                             DropdownMenuItem(
                               value: 'xiaoqiu',
-                              child: Text('xiaoqiu.js'),
+                              child: Text('小秋音乐'),
                             ),
 
                             DropdownMenuItem(
@@ -270,7 +271,7 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
                             final selected = v ?? 'xiaoqiu';
                             setState(() => _scriptPreset = selected);
                             if (selected == 'xiaoqiu') {
-                              _jsCtrl.text = '内置脚本 (xiaoqiu.js)';
+                              _jsCtrl.text = '内置脚本 (小秋音乐)';
                             } else if (selected == 'custom') {
                               _jsCtrl.text = '';
                             }
@@ -290,9 +291,8 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
                       controller: _jsCtrl,
                       enabled: _scriptPreset == 'custom',
                       decoration: InputDecoration(
-                        hintText: _scriptPreset == 'custom' 
-                            ? '输入自定义脚本地址' 
-                            : '使用预置脚本',
+                        hintText:
+                            _scriptPreset == 'custom' ? '输入自定义脚本地址' : '使用预置脚本',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -300,9 +300,12 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
                           horizontal: 12,
                           vertical: 16,
                         ),
-                        fillColor: _scriptPreset != 'custom' 
-                            ? Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3)
-                            : null,
+                        fillColor:
+                            _scriptPreset != 'custom'
+                                ? Theme.of(
+                                  context,
+                                ).colorScheme.surfaceVariant.withOpacity(0.3)
+                                : null,
                         filled: _scriptPreset != 'custom',
                       ),
                     ),
@@ -316,16 +319,17 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
             onPressed: () async {
               try {
                 final current = ref.read(sourceSettingsProvider);
-                
+
                 // 确定最终的脚本URL
                 String finalScriptUrl;
                 if (_scriptPreset == 'custom') {
                   finalScriptUrl = _jsCtrl.text.trim();
                 } else {
                   // 使用内置脚本的真实地址，但不显示给用户
-                  finalScriptUrl = 'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js';
+                  finalScriptUrl =
+                      'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js';
                 }
-                
+
                 final newSettings = current.copyWith(
                   unifiedApiBase: current.unifiedApiBase, // 固定使用默认值
                   platform: _platform,
