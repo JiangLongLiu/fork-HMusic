@@ -275,26 +275,19 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
                                         context,
                                         SnackBar(
                                           content: Text(
-                                            '✅ 测试成功：已删除列表 "${playlist.name}"',
+                                            '已删除列表：${playlist.name}',
                                           ),
                                           backgroundColor: Colors.green,
-                                          duration: const Duration(seconds: 5),
                                         ),
                                       );
                                     }
                                   } catch (e) {
-                                    print(
-                                      '🧪 [测试] 删除播放列表失败: ${playlist.name}, 错误: $e',
-                                    );
                                     if (mounted) {
                                       AppSnackBar.show(
                                         context,
                                         SnackBar(
-                                          content: Text(
-                                            '🧪 测试结果：删除失败\n播放列表: ${playlist.name}\n错误: $e',
-                                          ),
-                                          backgroundColor: Colors.orange,
-                                          duration: const Duration(seconds: 8),
+                                          content: Text('删除失败：$e'),
+                                          backgroundColor: Colors.red,
                                         ),
                                       );
                                     }
