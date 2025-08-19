@@ -30,27 +30,36 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     try {
       // 获取音乐库信息，从中推断最近的下载
       final musicListResp = await api.getMusicList();
-      if (musicListResp['ret'] == 'OK' && musicListResp['data'] is List) {
-        final musicList = (musicListResp['data'] as List).cast<Map<String, dynamic>>();
-        
-        // 按文件修改时间排序，获取最近的10首歌曲作为"最近下载"
-        musicList.sort((a, b) {
-          final aTime = a['mtime'] ?? 0;
-          final bTime = b['mtime'] ?? 0;
-          return bTime.compareTo(aTime);
+      
+      // 从返回的数据中提取下载列表和最近新增列表
+      List<String> downloadList = [];
+      List<String> recentList = [];
+      
+      if (musicListResp['下载'] is List) {
+        downloadList = (musicListResp['下载'] as List).cast<String>();
+      }
+      if (musicListResp['最近新增'] is List) {
+        recentList = (musicListResp['最近新增'] as List).cast<String>();
+      }
+      
+      // 将字符串列表转换为显示格式，优先显示最近新增的
+      final displayList = recentList.isNotEmpty ? recentList : downloadList;
+      _recentDownloads = displayList.take(10).map((name) => {
+        'name': name,
+        'isRecent': recentList.contains(name),
+      }).toList();
+      
+      if (mounted) {
+        setState(() {
+          if (downloadList.isEmpty && recentList.isEmpty) {
+            _status = '暂无下载的音乐文件';
+          } else {
+            final totalCount = downloadList.length;
+            final recentCount = recentList.length;
+            _status = '共有 $totalCount 首下载的歌曲' + 
+                     (recentCount > 0 ? '，最近新增 $recentCount 首' : '');
+          }
         });
-        
-        _recentDownloads = musicList.take(10).toList();
-        
-        if (mounted) {
-          setState(() {
-            _status = _recentDownloads.isEmpty 
-                ? '暂无音乐文件' 
-                : '显示最近添加的音乐文件（可能包含下载的歌曲）';
-          });
-        }
-      } else {
-        if (mounted) setState(() => _status = '获取音乐库信息失败');
       }
     } catch (e) {
       if (mounted) setState(() => _status = '获取信息失败: ${e.toString().length > 100 ? e.toString().substring(0, 100) + '...' : e}');
@@ -141,36 +150,48 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.music_note,
+                          music['isRecent'] == true 
+                              ? Icons.fiber_new 
+                              : Icons.music_note,
                           size: 16,
-                          color: onSurface.withOpacity(0.6),
+                          color: music['isRecent'] == true 
+                              ? Colors.green.withOpacity(0.8)
+                              : onSurface.withOpacity(0.6),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                music['name'] ?? '未知歌曲',
-                                style: TextStyle(
-                                  color: onSurface,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (music['size'] != null)
-                                Text(
-                                  '${(music['size'] / (1024 * 1024)).toStringAsFixed(1)} MB',
-                                  style: TextStyle(
-                                    color: onSurface.withOpacity(0.6),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                            ],
+                          child: Text(
+                            music['name'] ?? '未知歌曲',
+                            style: TextStyle(
+                              color: onSurface,
+                              fontSize: 13,
+                              fontWeight: music['isRecent'] == true 
+                                  ? FontWeight.w600 
+                                  : FontWeight.w500,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (music['isRecent'] == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '新',
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ))),
