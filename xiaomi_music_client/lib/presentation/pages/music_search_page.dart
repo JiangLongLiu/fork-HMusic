@@ -278,9 +278,14 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         return;
       }
 
+      // 使用“歌曲名-作者名”作为服务端下载名称
+      final safeTitle = item.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final safeAuthor = item.author.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final serverName = safeAuthor.isNotEmpty ? '$safeTitle-$safeAuthor' : safeTitle;
+
       await ref
           .read(musicLibraryProvider.notifier)
-          .downloadOneMusic(item.title, url: url);
+          .downloadOneMusic(serverName, url: url);
       if (mounted) {
         AppSnackBar.show(
           context,
