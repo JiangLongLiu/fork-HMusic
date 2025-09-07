@@ -189,7 +189,7 @@ class MusicApiService {
   // 代理播放 - 用于需要代理的链接
   Future<void> playUrlWithProxy({required String did, required String url}) async {
     // 构建完整的代理URL
-    final baseUrl = _client.baseUrl ?? 'http://localhost:58090';
+    final baseUrl = _client.baseUrl;
     final proxyUrl = '$baseUrl/proxy?urlb64=${_encodeUrlToBase64(url)}';
     debugPrint('构建代理URL: $proxyUrl');
     await _client.get('/playurl', queryParameters: {'did': did, 'url': proxyUrl});
