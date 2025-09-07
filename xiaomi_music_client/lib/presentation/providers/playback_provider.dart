@@ -80,6 +80,8 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
   final Ref ref;
   bool _isInitialized = false;
   Timer? _statusRefreshTimer;
+  Timer? _localProgressTimer;
+  DateTime? _lastUpdateTime;
 
   PlaybackNotifier(this.ref)
     : super(const PlaybackState(isLoading: false, hasLoaded: false)) {
@@ -91,6 +93,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
   @override
   void dispose() {
     _statusRefreshTimer?.cancel();
+    _localProgressTimer?.cancel();
     super.dispose();
   }
 
@@ -168,6 +171,9 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
         isLoading: silent ? state.isLoading : false,
         hasLoaded: true,
       );
+      
+      // 记录更新时间用于本地进度预测
+      _lastUpdateTime = DateTime.now();
 
       // 如果音乐正在播放，启动自动刷新进度
       _startProgressTimer(currentMusic?.isPlaying ?? false);
@@ -217,25 +223,32 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     final selectedDid = ref.read(deviceProvider).selectedDeviceId;
     if (apiService == null || selectedDid == null) return;
 
+    // 🎯 乐观更新：先更新本地UI状态
+    if (state.currentMusic != null) {
+      final updatedMusic = PlayingMusic(
+        curMusic: state.currentMusic!.curMusic,
+        curPlaylist: state.currentMusic!.curPlaylist,
+        isPlaying: false, // 立即显示为暂停状态
+        offset: state.currentMusic!.offset,
+        duration: state.currentMusic!.duration,
+      );
+      state = state.copyWith(currentMusic: updatedMusic);
+      _startProgressTimer(false); // 停止本地进度更新
+    }
+
     try {
-      state = state.copyWith(isLoading: true);
-
       print('🎵 执行暂停命令');
-
       await apiService.pauseMusic(did: selectedDid);
 
-      // 等待命令执行后刷新状态
-      await Future.delayed(const Duration(milliseconds: 1000));
-      await refreshStatus();
-
-      // 再次刷新以确保状态同步
-      await Future.delayed(const Duration(milliseconds: 500));
-      await refreshStatus();
-
-      state = state.copyWith(isLoading: false);
+      // 延迟同步真实状态
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        refreshStatus(silent: true);
+      });
     } catch (e) {
       print('🎵 暂停失败: $e');
-      state = state.copyWith(isLoading: false, error: '暂停失败: ${e.toString()}');
+      // 如果请求失败，恢复原来的状态
+      refreshStatus(silent: true);
+      state = state.copyWith(error: '暂停失败: ${e.toString()}');
     }
   }
 
@@ -244,45 +257,33 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     final selectedDid = ref.read(deviceProvider).selectedDeviceId;
     if (apiService == null || selectedDid == null) return;
 
+    // 🎯 乐观更新：先更新本地UI状态
+    if (state.currentMusic != null) {
+      final updatedMusic = PlayingMusic(
+        curMusic: state.currentMusic!.curMusic,
+        curPlaylist: state.currentMusic!.curPlaylist,
+        isPlaying: true, // 立即显示为播放状态
+        offset: state.currentMusic!.offset,
+        duration: state.currentMusic!.duration,
+      );
+      state = state.copyWith(currentMusic: updatedMusic);
+      _lastUpdateTime = DateTime.now(); // 重置本地进度计时
+      _startProgressTimer(true); // 开始本地进度更新
+    }
+
     try {
-      // 非阻塞式更新，保持按钮不长时间在 loading，交互更顺滑
-      state = state.copyWith(isLoading: false);
-
       print('🎵 执行播放命令');
-
-      // 先尝试简单的播放命令
       await apiService.resumeMusic(did: selectedDid);
 
-      // 等待一下看是否生效
-      // 延迟刷新但不设置 isLoading，避免按钮长时间 loading
-      Future.delayed(
-        const Duration(milliseconds: 800),
-        () => refreshStatus(silent: true),
-      );
-
-      // 如果还是没有播放，尝试播放当前歌曲
-      if (state.currentMusic != null && !(state.currentMusic!.isPlaying)) {
-        final currentMusic = state.currentMusic!.curMusic;
-        final currentPlaylist = state.currentMusic!.curPlaylist;
-
-        print('🎵 简单播放命令无效，尝试播放列表命令: $currentMusic');
-
-        await apiService.playMusicList(
-          deviceId: selectedDid,
-          playlistName: currentPlaylist,
-          musicName: currentMusic,
-        );
-
-        Future.delayed(
-          const Duration(milliseconds: 1000),
-          () => refreshStatus(silent: true),
-        );
-      }
-
-      // 结束时不强制 loading 状态
+      // 延迟同步真实状态
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        refreshStatus(silent: true);
+      });
     } catch (e) {
       print('🎵 播放失败: $e');
-      state = state.copyWith(isLoading: false, error: '播放失败: ${e.toString()}');
+      // 如果请求失败，恢复原来的状态
+      refreshStatus(silent: true);
+      state = state.copyWith(error: '播放失败: ${e.toString()}');
     }
   }
 
@@ -504,12 +505,46 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
 
   void _startProgressTimer(bool isPlaying) {
     _statusRefreshTimer?.cancel();
+    _localProgressTimer?.cancel();
 
-    if (isPlaying) {
-      // 每3秒刷新一次播放状态和进度（静默刷新，不影响按钮loading）
+    if (isPlaying && state.currentMusic != null) {
+      // 每3秒从服务器获取真实进度（避免频繁请求）
       _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
         refreshStatus(silent: true);
       });
+      
+      // 每200ms更新本地进度预测（更平滑的UI）
+      _localProgressTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        _updateLocalProgress();
+      });
+    }
+  }
+  
+  void _updateLocalProgress() {
+    if (state.currentMusic == null || 
+        !state.currentMusic!.isPlaying || 
+        _lastUpdateTime == null) {
+      return;
+    }
+    
+    final now = DateTime.now();
+    final elapsedSeconds = now.difference(_lastUpdateTime!).inSeconds;
+    
+    // 预测当前播放进度
+    final predictedOffset = (state.currentMusic!.offset ?? 0) + elapsedSeconds;
+    final duration = state.currentMusic!.duration ?? 0;
+    
+    // 确保进度不超过总时长
+    if (predictedOffset < duration) {
+      final updatedMusic = PlayingMusic(
+        curMusic: state.currentMusic!.curMusic,
+        curPlaylist: state.currentMusic!.curPlaylist,
+        isPlaying: state.currentMusic!.isPlaying,
+        offset: predictedOffset,
+        duration: state.currentMusic!.duration,
+      );
+      
+      state = state.copyWith(currentMusic: updatedMusic);
     }
   }
 

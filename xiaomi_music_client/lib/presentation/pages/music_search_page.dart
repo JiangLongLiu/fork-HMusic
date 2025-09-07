@@ -669,101 +669,21 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
           // 🎯 使用智能播放接口，自动判断是否需要代理
           await apiService.playUrlSmart(did: selectedDeviceId, url: playUrl);
 
-          print('[XMC] ✅ [Play] 直接播放请求成功');
+          print('[XMC] ✅ [Play] 播放请求成功');
 
-          // 🎯 播放成功后，先停止当前播放，然后等待设备开始播放新歌曲
+          // 🎯 简化播放流程，只刷新一次播放状态
           try {
-            print('[XMC] ⏹️ [Play] 先停止当前播放...');
-            try {
-              await apiService.executeCommand(
-                did: selectedDeviceId,
-                command: '停止',
-              );
-              print('[XMC] ✅ [Play] 停止命令发送成功');
-            } catch (e) {
-              print('[XMC] ⚠️ [Play] 停止命令失败: $e');
-            }
-
-            print('[XMC] ⏳ [Play] 等待设备开始播放新歌曲...');
-            await Future.delayed(const Duration(seconds: 3));
-
-            print('[XMC] 🔄 [Play] 开始刷新播放状态...');
+            print('[XMC] 🔄 [Play] 刷新播放状态...');
+            await Future.delayed(const Duration(seconds: 2)); // 等待设备响应
             await ref
                 .read(playbackProvider.notifier)
                 .refreshStatus(silent: true);
-            print('[XMC] ✅ [Play] 播放状态刷新成功');
-
-            // 🎯 验证播放状态
-            final playbackState = ref.read(playbackProvider);
-            if (playbackState.currentMusic != null) {
-              print(
-                '🎵 [Play] 当前播放状态: ${playbackState.currentMusic!.curMusic}',
-              );
-              print(
-                '🎵 [Play] 是否正在播放: ${playbackState.currentMusic!.isPlaying}',
-              );
-
-              // 如果播放状态不正确，再次尝试刷新
-              if (!playbackState.currentMusic!.isPlaying) {
-                print('[XMC] ⚠️ [Play] 播放状态不正确，再次尝试刷新...');
-                await Future.delayed(const Duration(seconds: 2));
-                await ref
-                    .read(playbackProvider.notifier)
-                    .refreshStatus(silent: true);
-
-                // 再次检查播放状态
-                final updatedPlaybackState = ref.read(playbackProvider);
-                if (updatedPlaybackState.currentMusic != null) {
-                  print(
-                    '🎵 [Play] 更新后的播放状态: ${updatedPlaybackState.currentMusic!.curMusic}',
-                  );
-                  print(
-                    '🎵 [Play] 更新后是否正在播放: ${updatedPlaybackState.currentMusic!.isPlaying}',
-                  );
-                }
-
-                // 🎯 如果播放状态仍然不正确，尝试强制播放
-                if (updatedPlaybackState.currentMusic == null ||
-                    !updatedPlaybackState.currentMusic!.isPlaying ||
-                    !updatedPlaybackState.currentMusic!.curMusic.contains(
-                      item.title,
-                    )) {
-                  print('[XMC] ⚠️ [Play] 播放状态仍然不正确，尝试强制播放...');
-                  try {
-                    // 尝试使用播放列表的方式播放
-                    await apiService.playMusicList(
-                      deviceId: selectedDeviceId,
-                      playlistName: '临时搜索列表',
-                      musicName: item.title,
-                    );
-                    print('[XMC] ✅ [Play] 强制播放命令发送成功');
-
-                    // 等待强制播放生效
-                    await Future.delayed(const Duration(seconds: 2));
-                    await ref
-                        .read(playbackProvider.notifier)
-                        .refreshStatus(silent: true);
-
-                    final finalPlaybackState = ref.read(playbackProvider);
-                    if (finalPlaybackState.currentMusic != null) {
-                      print(
-                        '🎵 [Play] 最终播放状态: ${finalPlaybackState.currentMusic!.curMusic}',
-                      );
-                      print(
-                        '🎵 [Play] 最终是否正在播放: ${finalPlaybackState.currentMusic!.isPlaying}',
-                      );
-                    }
-                  } catch (e) {
-                    print('[XMC] ❌ [Play] 强制播放失败: $e');
-                  }
-                }
-              }
-            }
+            print('[XMC] ✅ [Play] 播放状态刷新完成');
           } catch (e) {
             print('[XMC] ⚠️ [Play] 播放状态刷新失败: $e');
           }
 
-          print('[XMC] ✅ [Play] 播放流程完成，返回');
+          print('[XMC] ✅ [Play] 播放流程完成');
           return; // 直接播放成功，返回
         } catch (e) {
           print('[XMC] ❌ [Play] 直接播放失败: $e');
