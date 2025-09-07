@@ -763,52 +763,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
             print('[XMC] ⚠️ [Play] 播放状态刷新失败: $e');
           }
 
-          // 🎯 播放成功后，在后台异步下载到音乐库（不阻塞播放）
-          if (mounted) {
-            print('[XMC] 📥 [Play] 启动后台异步下载到音乐库...');
-            final downloadResult = await _showDownloadWithQualitySelection(
-              item.title,
-              item,
-            );
-            if (downloadResult != null &&
-                downloadResult['shouldDownload'] == true) {
-              final selectedQuality = downloadResult['quality'] as String;
-              print('[XMC] 📥 [Play] 异步下载音质: $selectedQuality');
-
-              // 根据选择的音质重新获取播放链接
-              final qualityUrl = await _getPlayUrlWithQuality(
-                item,
-                selectedQuality,
-              );
-              final downloadUrl = qualityUrl ?? playUrl;
-
-              // 使用"歌曲名 - 作者名"格式作为文件名
-              final safeTitle = item.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-              final safeAuthor = item.author.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-              final fileName = safeAuthor.isNotEmpty ? '$safeTitle - $safeAuthor' : safeTitle;
-
-              // 异步下载，不阻塞UI
-              ref
-                  .read(musicLibraryProvider.notifier)
-                  .downloadOneMusicAsync(fileName, url: downloadUrl);
-
-              if (mounted) {
-                AppSnackBar.show(
-                  context,
-                  SnackBar(
-                    content: Text('正在后台下载: $fileName ($selectedQuality)'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            } else {
-              print('[XMC] ❌ [Play] 自动下载失败');
-            }
-          }
-
           print('[XMC] ✅ [Play] 播放流程完成，返回');
-          return; // 直接播放成功，不需要再走下载逻辑
+          return; // 直接播放成功，返回
         } catch (e) {
           print('[XMC] ❌ [Play] 直接播放失败: $e');
           print('[XMC] ❌ [Play] 错误类型: ${e.runtimeType}');
@@ -839,22 +795,13 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         return;
       }
 
-      // 🎯 原有的下载逻辑作为回退方案
-      // 使用"歌曲名 - 作者名"格式
-      final safeTitle = item.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final safeAuthor = item.author.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final fallbackFileName = safeAuthor.isNotEmpty ? '$safeTitle - $safeAuthor' : safeTitle;
-      
-      // 使用异步下载作为回退方案
-      ref
-          .read(musicLibraryProvider.notifier)
-          .downloadOneMusicAsync(fallbackFileName, url: playUrl);
+      // 🎯 回退方案：显示播放成功提示，无需下载
       if (mounted) {
         AppSnackBar.show(
           context,
           SnackBar(
-            content: Text('正在后台下载：$fallbackFileName'),
-            backgroundColor: Colors.orange,
+            content: Text('✅ 播放成功：${item.title}'),
+            backgroundColor: Colors.green,
           ),
         );
       }
@@ -950,77 +897,4 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
 
   // 🎯 新增：显示下载确认对话框
 
-  Future<Map<String, dynamic>?> _showDownloadWithQualitySelection(
-    String musicTitle,
-    OnlineMusicResult item,
-  ) async {
-    // 自动选择最佳音质进行下载，不显示选择对话框
-    final autoSelectedQuality = await _selectBestQuality(item);
-    
-    if (autoSelectedQuality != null) {
-      return {
-        'shouldDownload': true,
-        'quality': autoSelectedQuality,
-        'item': item,
-      };
-    }
-    
-    // 如果所有音质都无法获取，返回null
-    return null;
-  }
-
-  /// 自动选择最佳可用音质（320k -> 128k -> flac -> flac24bit）
-  Future<String?> _selectBestQuality(OnlineMusicResult item) async {
-    // 音质优先级：320k > 128k > flac > flac24bit
-    const qualityPriority = ['320k', '128k', 'flac', 'flac24bit'];
-    
-    for (final quality in qualityPriority) {
-      debugPrint('尝试获取音质: $quality');
-      try {
-        final url = await _getPlayUrlWithQuality(item, quality);
-        if (url != null && url.isNotEmpty) {
-          debugPrint('✅ 成功获取 $quality 音质链接');
-          return quality;
-        }
-      } catch (e) {
-        debugPrint('❌ $quality 音质获取失败: $e');
-      }
-    }
-    
-    debugPrint('❌ 所有音质都无法获取，使用默认320k');
-    return '320k'; // 回退到默认320k
-  }
-
-  /// 根据指定音质获取播放链接
-  Future<String?> _getPlayUrlWithQuality(
-    OnlineMusicResult item,
-    String quality,
-  ) async {
-    try {
-      print('[XMC] 🎵 [QualityDownload] 获取 ${item.title} 的 $quality 音质链接...');
-
-      final webSvc = await ref.read(webviewJsSourceServiceProvider.future);
-      if (webSvc == null) {
-        throw Exception('WebView服务未就绪');
-      }
-
-      // 通过WebView JS源获取指定音质的播放链接
-      final directUrl = await webSvc.resolveMusicUrl(
-        platform: item.platform == 'auto' ? 'tx' : (item.platform ?? 'tx'),
-        songId: item.songId ?? '',
-        quality: quality,
-      );
-
-      if (directUrl != null && directUrl.isNotEmpty) {
-        print('[XMC] ✅ [QualityDownload] 获取 $quality 音质链接成功');
-        return directUrl;
-      }
-
-      throw Exception('获取音质链接失败');
-    } catch (e) {
-      print('[XMC] ❌ [QualityDownload] 获取 $quality 音质链接失败: $e');
-      // 如果指定音质获取失败，返回null（使用原有链接）
-      return null;
-    }
-  }
 }
