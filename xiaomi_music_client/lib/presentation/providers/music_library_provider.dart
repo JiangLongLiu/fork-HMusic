@@ -181,9 +181,36 @@ class MusicLibraryNotifier extends StateNotifier<MusicLibraryState> {
       );
       // 简单成功判断
       if (resp['ret'] == 'OK' || resp['success'] == true) {
-        // 下载一般是异步，稍后刷新库
-        await Future.delayed(const Duration(seconds: 1));
+        debugPrint('MusicLibrary: 下载请求成功，开始等待和刷新');
+        
+        // 下载是异步的，需要等待较长时间让服务器完成下载
+        await Future.delayed(const Duration(seconds: 3));
         await refreshLibrary();
+        
+        // 如果第一次刷新后还没有找到新歌曲，再次尝试刷新
+        final currentCount = state.musicList.length;
+        bool foundNewMusic = state.musicList.any((music) => 
+            music.name.contains(musicName.split(' - ').first) || 
+            music.name == musicName);
+            
+        if (!foundNewMusic) {
+          debugPrint('MusicLibrary: 第一次刷新未找到新音乐，5秒后再次刷新');
+          await Future.delayed(const Duration(seconds: 5));
+          await refreshLibrary();
+          
+          // 第二次检查
+          foundNewMusic = state.musicList.any((music) => 
+              music.name.contains(musicName.split(' - ').first) || 
+              music.name == musicName);
+              
+          if (!foundNewMusic) {
+            debugPrint('MusicLibrary: 第二次刷新仍未找到新音乐，10秒后最后一次刷新');
+            await Future.delayed(const Duration(seconds: 10));
+            await refreshLibrary();
+          }
+        }
+        
+        debugPrint('MusicLibrary: 下载和刷新流程完成');
       } else {
         state = state.copyWith(isLoading: false, error: resp.toString());
       }
