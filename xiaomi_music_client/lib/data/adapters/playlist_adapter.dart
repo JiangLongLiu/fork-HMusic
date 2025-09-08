@@ -23,7 +23,15 @@ class PlaylistAdapter {
             final v = musicListResponse[n];
             if (v is List) count = v.length;
             return Playlist(name: n, count: count);
-          }).toList()
+          })
+          // 过滤掉没有歌曲的系统内置列表（不可删除且无歌曲的列表）
+          .where((playlist) {
+            final isDeletable = names.contains(playlist.name);
+            final isEmpty = playlist.count == null || playlist.count == 0;
+            // 如果是系统内置列表（不可删除）且为空，则隐藏
+            return isDeletable || !isEmpty;
+          })
+          .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
     return playlists;
