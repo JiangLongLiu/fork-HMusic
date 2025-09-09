@@ -40,7 +40,7 @@ class DioClient {
             print('🔵 查询参数: ${options.queryParameters}');
           }
           if (options.data != null) {
-            print('🔵 请求体: ${options.data}');
+            print('🔵 请求体完整数据: ${options.data}');
           }
           handler.next(options);
         },

@@ -57,13 +57,10 @@ class MusicApiService {
     String? musicName,
     String? searchKey,
   }) async {
-    await _client.post(
-      '/playmusic',
-      data: {
-        'did': did,
-        'musicname': musicName ?? '',
-        'searchkey': searchKey ?? '',
-      },
+    await playMusicList(
+      did: did,
+      listName: "临时搜索列表",
+      musicName: musicName ?? '',
     );
   }
 
@@ -127,6 +124,7 @@ class MusicApiService {
     required String musicUrl,
     required String musicTitle,
     required String musicAuthor,
+    Map<String, String>? headers,
   }) async {
     // 第一步：构造音乐列表数据
     final musicListJson = [
@@ -136,6 +134,10 @@ class MusicApiService {
           {
             "name": "$musicTitle - $musicAuthor",
             "url": musicUrl,
+            if (headers != null) ...{
+              "api": true,
+              "headers": headers,
+            }
           }
         ]
       }
@@ -144,7 +146,9 @@ class MusicApiService {
     // 第二步：获取当前设置，然后更新音乐列表
     final currentSettings = await getSettings();
     final updatedSettings = Map<String, dynamic>.from(currentSettings);
-    updatedSettings['music_list_json'] = jsonEncode(musicListJson);
+    final musicListJsonString = jsonEncode(musicListJson);
+    debugPrint('🔵 完整的音乐列表JSON: $musicListJsonString');
+    updatedSettings['music_list_json'] = musicListJsonString;
 
     // 第三步：保存设置
     final saveResult = await saveSetting(updatedSettings);
