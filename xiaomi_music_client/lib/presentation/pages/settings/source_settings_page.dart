@@ -18,13 +18,14 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
   bool _initialized = false;
   // _jsEnabled 已由 _primary 状态隐含控制，无需单独使用
   String _primary = 'unified'; // 'unified' | 'js_external'
-  String _jsSearchStrategy = 'qqFirst'; // qqFirst|kuwoFirst|neteaseFirst|qqOnly|kuwoOnly|neteaseOnly
+  String _jsSearchStrategy =
+      'qqFirst'; // qqFirst|kuwoFirst|neteaseFirst|qqOnly|kuwoOnly|neteaseOnly
 
   @override
   void initState() {
     super.initState();
     _apiCtrl = TextEditingController();
-    
+
     // Riverpod 限制：listen 不能放在 initState，这里不监听
   }
 
@@ -67,15 +68,13 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
           // 音源选择卡片
           _buildSourceTypeCard(context, onSurface),
           const SizedBox(height: 16),
-          
+
           // 配置区域
-          if (_primary == 'unified') ...[
-            _buildUnifiedApiCard(context),
-          ],
+          if (_primary == 'unified') ...[_buildUnifiedApiCard(context)],
           if (_primary == 'js_external') ...[
             _buildJsScriptCard(context, scripts, selectedScript, scriptManager),
           ],
-          
+
           const SizedBox(height: 24),
           _buildSaveButton(context, settings, selectedScript),
         ],
@@ -94,9 +93,9 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
           children: [
             Text(
               '音源类型',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -161,9 +160,9 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
             const SizedBox(height: 16),
             Text(
               '优先平台',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             _buildPlatformDropdown(context),
@@ -173,8 +172,12 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
     );
   }
 
-  Widget _buildJsScriptCard(BuildContext context, List<JsScript> scripts, 
-      JsScript? selectedScript, JsScriptManager scriptManager) {
+  Widget _buildJsScriptCard(
+    BuildContext context,
+    List<JsScript> scripts,
+    JsScript? selectedScript,
+    JsScriptManager scriptManager,
+  ) {
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
@@ -201,57 +204,67 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.add),
                   tooltip: '导入脚本',
-                  onSelected: (value) => _handleScriptImport(value, scriptManager),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'local_file',
-                      child: Row(
-                        children: [
-                          Icon(Icons.file_open),
-                          SizedBox(width: 8),
-                          Text('本地文件'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'url',
-                      child: Row(
-                        children: [
-                          Icon(Icons.link),
-                          SizedBox(width: 8),
-                          Text('在线地址'),
-                        ],
-                      ),
-                    ),
-                  ],
+                  onSelected:
+                      (value) => _handleScriptImport(value, scriptManager),
+                  itemBuilder:
+                      (context) => [
+                        const PopupMenuItem(
+                          value: 'local_file',
+                          child: Row(
+                            children: [
+                              Icon(Icons.file_open),
+                              SizedBox(width: 8),
+                              Text('本地文件'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'url',
+                          child: Row(
+                            children: [
+                              Icon(Icons.link),
+                              SizedBox(width: 8),
+                              Text('在线地址'),
+                            ],
+                          ),
+                        ),
+                      ],
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            
+
             if (scripts.isEmpty) ...[
               Text(
                 '暂无可用脚本，请导入脚本',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.6),
                 ),
               ),
             ] else ...[
               Text(
                 '选择脚本 (当前: ${selectedScript?.name ?? "未选择"})',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
-              ...scripts.map((script) => _buildScriptTile(context, script, 
-                  selectedScript?.id == script.id, scriptManager)),
+              ...scripts.map(
+                (script) => _buildScriptTile(
+                  context,
+                  script,
+                  selectedScript?.id == script.id,
+                  scriptManager,
+                ),
+              ),
               const SizedBox(height: 16),
               Text(
                 '搜索源优先级',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
               _buildJsSearchStrategyDropdown(context),
@@ -259,7 +272,9 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
               Text(
                 '说明：仅在“JS 脚本”流程下用于搜索源选择；播放解析仍走JS解析。',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.6),
                 ),
               ),
             ],
@@ -269,32 +284,36 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
     );
   }
 
-  Widget _buildScriptTile(BuildContext context, JsScript script, 
-      bool isSelected, JsScriptManager scriptManager) {
+  Widget _buildScriptTile(
+    BuildContext context,
+    JsScript script,
+    bool isSelected,
+    JsScriptManager scriptManager,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isSelected ? 2 : 0,
-      color: isSelected 
-          ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
-          : Theme.of(context).colorScheme.surface,
+      color:
+          isSelected
+              ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+              : Theme.of(context).colorScheme.surface,
       child: ListTile(
         leading: Icon(
-          script.source == JsScriptSource.builtin 
+          script.source == JsScriptSource.builtin
               ? Icons.integration_instructions
-              : script.source == JsScriptSource.localFile 
-                ? Icons.file_present
-                : Icons.link,
-          color: isSelected 
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurfaceVariant,
+              : script.source == JsScriptSource.localFile
+              ? Icons.file_present
+              : Icons.link,
+          color:
+              isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         title: Text(
           script.name,
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected 
-                ? Theme.of(context).colorScheme.primary
-                : null,
+            color: isSelected ? Theme.of(context).colorScheme.primary : null,
           ),
         ),
         subtitle: Text(
@@ -306,14 +325,18 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isSelected) 
-              Icon(Icons.check_circle, 
-                color: Theme.of(context).colorScheme.primary, size: 20),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
             if (!script.isBuiltIn) ...[
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
-                onPressed: () => _confirmDeleteScript(context, script, scriptManager),
+                onPressed:
+                    () => _confirmDeleteScript(context, script, scriptManager),
                 tooltip: '删除脚本',
               ),
             ],
@@ -369,9 +392,15 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
           value: _jsSearchStrategy,
           isExpanded: true,
           items: const [
-            DropdownMenuItem(value: 'qqFirst', child: Text('优先 QQ → 酷狗/网易回退')),
-            DropdownMenuItem(value: 'kuwoFirst', child: Text('优先 酷我 → QQ/网易回退')),
-            DropdownMenuItem(value: 'neteaseFirst', child: Text('优先 网易 → QQ/酷狗回退')),
+            DropdownMenuItem(value: 'qqFirst', child: Text('优先 QQ → 酷我/网易回退')),
+            DropdownMenuItem(
+              value: 'kuwoFirst',
+              child: Text('优先 酷我 → QQ/网易回退'),
+            ),
+            DropdownMenuItem(
+              value: 'neteaseFirst',
+              child: Text('优先 网易 → QQ/酷我回退'),
+            ),
             DropdownMenuItem(value: 'qqOnly', child: Text('仅 QQ')),
             DropdownMenuItem(value: 'kuwoOnly', child: Text('仅 酷我')),
             DropdownMenuItem(value: 'neteaseOnly', child: Text('仅 网易')),
@@ -382,8 +411,11 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
     );
   }
 
-  Widget _buildSaveButton(BuildContext context, SourceSettings settings, 
-      JsScript? selectedScript) {
+  Widget _buildSaveButton(
+    BuildContext context,
+    SourceSettings settings,
+    JsScript? selectedScript,
+  ) {
     return FilledButton.icon(
       onPressed: () => _saveSettings(settings, selectedScript),
       icon: const Icon(Icons.save_rounded),
@@ -391,30 +423,27 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
     );
   }
 
-  Future<void> _handleScriptImport(String type, JsScriptManager scriptManager) async {
+  Future<void> _handleScriptImport(
+    String type,
+    JsScriptManager scriptManager,
+  ) async {
     bool success = false;
-    
+
     if (type == 'local_file') {
       success = await scriptManager.importFromLocalFile();
     } else if (type == 'url') {
       success = await _showUrlImportDialog(scriptManager);
     }
-    
+
     if (success && mounted) {
       AppSnackBar.show(
         context,
-        const SnackBar(
-          content: Text('脚本导入成功'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('脚本导入成功'), backgroundColor: Colors.green),
       );
     } else if (!success && mounted) {
       AppSnackBar.show(
         context,
-        const SnackBar(
-          content: Text('脚本导入失败'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('脚本导入失败'), backgroundColor: Colors.red),
       );
     }
   }
@@ -422,100 +451,110 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
   Future<bool> _showUrlImportDialog(JsScriptManager scriptManager) async {
     final nameController = TextEditingController();
     final urlController = TextEditingController();
-    
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('导入在线脚本'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: '脚本名称',
-                hintText: '给脚本起个名字',
-              ),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('导入在线脚本'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: '脚本名称',
+                    hintText: '给脚本起个名字',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: urlController,
+                  decoration: const InputDecoration(
+                    labelText: '脚本地址',
+                    hintText: 'https://example.com/script.js',
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: urlController,
-              decoration: const InputDecoration(
-                labelText: '脚本地址',
-                hintText: 'https://example.com/script.js',
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+              FilledButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isNotEmpty &&
+                      urlController.text.trim().isNotEmpty) {
+                    Navigator.of(context).pop(true);
+                  }
+                },
+                child: const Text('导入'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () async {
-              if (nameController.text.trim().isNotEmpty && 
-                  urlController.text.trim().isNotEmpty) {
-                Navigator.of(context).pop(true);
-              }
-            },
-            child: const Text('导入'),
-          ),
-        ],
-      ),
     );
-    
+
     if (result == true) {
       return await scriptManager.importFromUrl(
         urlController.text.trim(),
         nameController.text.trim(),
       );
     }
-    
+
     return false;
   }
 
-  Future<void> _confirmDeleteScript(BuildContext context, JsScript script, 
-      JsScriptManager scriptManager) async {
+  Future<void> _confirmDeleteScript(
+    BuildContext context,
+    JsScript script,
+    JsScriptManager scriptManager,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除脚本'),
-        content: Text('确定要删除脚本 "${script.name}" 吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('删除脚本'),
+            content: Text('确定要删除脚本 "${script.name}" 吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('删除'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
     );
-    
+
     if (confirmed == true) {
       await scriptManager.deleteScript(script.id);
     }
   }
 
-  Future<void> _saveSettings(SourceSettings settings, JsScript? selectedScript) async {
+  Future<void> _saveSettings(
+    SourceSettings settings,
+    JsScript? selectedScript,
+  ) async {
     try {
       final newSettings = settings.copyWith(
         unifiedApiBase: settings.unifiedApiBase, // 固定使用默认值
         platform: _platform,
         enabled: _primary == 'js_external',
         primarySource: _primary,
-        scriptUrl: selectedScript?.source == JsScriptSource.url 
-            ? selectedScript?.content ?? ''
-            : (selectedScript?.source == JsScriptSource.builtin 
+        scriptUrl:
+            selectedScript?.source == JsScriptSource.url
                 ? selectedScript?.content ?? ''
-                : ''),
+                : (selectedScript?.source == JsScriptSource.builtin
+                    ? selectedScript?.content ?? ''
+                    : ''),
         scriptPreset: selectedScript?.id ?? 'builtin_xiaoqiu',
-        localScriptPath: selectedScript?.source == JsScriptSource.localFile 
-            ? selectedScript?.content ?? ''
-            : '',
+        localScriptPath:
+            selectedScript?.source == JsScriptSource.localFile
+                ? selectedScript?.content ?? ''
+                : '',
         jsSearchStrategy: _jsSearchStrategy,
       );
 
@@ -524,19 +563,13 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
 
       AppSnackBar.show(
         context,
-        const SnackBar(
-          content: Text('音源设置已保存'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('音源设置已保存'), backgroundColor: Colors.green),
       );
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        SnackBar(
-          content: Text('保存失败: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
       );
     }
   }

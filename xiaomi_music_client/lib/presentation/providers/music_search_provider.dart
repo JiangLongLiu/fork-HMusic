@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/music.dart';
 import '../../data/models/online_music_result.dart';
 import '../../data/services/unified_api_service.dart';
+import '../../data/services/native_music_search_service.dart';
 import 'source_settings_provider.dart';
 import '../../data/adapters/search_adapter.dart';
 import 'js_source_provider.dart';
@@ -133,39 +134,28 @@ class MusicSearchNotifier extends StateNotifier<MusicSearchState> {
       String sourceUsed = 'unified';
       String? lastError;
 
-      // 智能音源选择策略
+      // 音源选择策略（两套流程完全分离）
       final bool preferJs =
-          settings.useJsForSearch && settings.primarySource == 'js_external';
-      final bool hasUnifiedApi =
-          settings.useUnifiedApi && settings.unifiedApiBase.isNotEmpty;
+          settings.primarySource == 'js_external' && settings.useJsForSearch;
+      final bool preferUnified = settings.primarySource == 'unified';
 
-      print(
-        '[XMC] 🎵 [MusicSearch] 音源策略: preferJs=$preferJs, hasUnifiedApi=$hasUnifiedApi',
-      );
+      print('[XMC] 🎵 [MusicSearch] 音源策略: preferJs=$preferJs, preferUnified=$preferUnified');
 
-      // 策略 1：优先使用用户选择的主要音源
       if (preferJs) {
-        print('[XMC] 🎵 [MusicSearch] 尝试JS外置音源');
+        print('[XMC] 🎵 [MusicSearch] JS流程（使用原生搜索 + JS解析播放）');
         try {
-          parsed = await _searchUsingJsSource(
-            query,
-            settings,
-            ref,
+          parsed = await _searchUsingNativeByStrategy(
+            query: query,
+            settings: settings,
             page: 1,
           ).timeout(const Duration(seconds: 15));
-          if (parsed.isNotEmpty) {
-            sourceUsed = 'js_builtin';
-            print('[XMC] ✅ JS音源搜索成功，结果: ${parsed.length}条');
-          }
+          sourceUsed = 'js_builtin';
         } catch (e) {
-          lastError = 'JS音源失败: $e';
-          print('[XMC] ❌ JS音源搜索失败: $e');
+          lastError = 'JS流程搜索失败: $e';
+          print('[XMC] ❌ JS流程搜索失败: $e');
         }
-      }
-
-      // 策略 2：如果主要音源失败或无结果，尝试备用音源
-      if (parsed.isEmpty && hasUnifiedApi) {
-        print('[XMC] 🔄 [MusicSearch] 尝试统一API备用音源');
+      } else if (preferUnified) {
+        print('[XMC] 🎵 [MusicSearch] 统一API流程');
         try {
           parsed = await _searchUsingUnifiedAPI(
             query,
@@ -173,38 +163,10 @@ class MusicSearchNotifier extends StateNotifier<MusicSearchState> {
             ref,
             page: 1,
           ).timeout(const Duration(seconds: 12));
-          if (parsed.isNotEmpty) {
-            sourceUsed = 'unified';
-            print('[XMC] ✅ 统一API搜索成功，结果: ${parsed.length}条');
-          }
+          sourceUsed = 'unified';
         } catch (e) {
-          lastError =
-              (lastError != null) ? '$lastError; 统一API失败: $e' : '统一API失败: $e';
+          lastError = '统一API搜索失败: $e';
           print('[XMC] ❌ 统一API搜索失败: $e');
-        }
-      }
-
-      // 策略 3：如果主要是统一API但失败，尝试JS作为备用
-      if (parsed.isEmpty &&
-          !preferJs &&
-          settings.primarySource == 'unified' &&
-          settings.useJsForSearch) {
-        print('[XMC] 🔄 [MusicSearch] 统一API失败，尝试JS备用音源');
-        try {
-          parsed = await _searchUsingJsSource(
-            query,
-            settings,
-            ref,
-            page: 1,
-          ).timeout(const Duration(seconds: 10));
-          if (parsed.isNotEmpty) {
-            sourceUsed = 'js_builtin';
-            print('[XMC] ✅ JS备用音源搜索成功，结果: ${parsed.length}条');
-          }
-        } catch (e) {
-          lastError =
-              (lastError != null) ? '$lastError; JS备用失败: $e' : 'JS备用失败: $e';
-          print('[XMC] ❌ JS备用音源搜索失败: $e');
         }
       }
 
@@ -235,6 +197,59 @@ class MusicSearchNotifier extends StateNotifier<MusicSearchState> {
   }
 
   // JS音源搜索和统一API搜索
+
+  Future<List<OnlineMusicResult>> _searchUsingNativeByStrategy({
+    required String query,
+    required SourceSettings settings,
+    required int page,
+  }) async {
+    final native = ref.read(nativeMusicSearchServiceProvider);
+    final String strategy = settings.jsSearchStrategy;
+
+    Future<List<OnlineMusicResult>> searchOnce(String key) {
+      switch (key) {
+        case 'qq':
+          return native.searchQQ(query: query, page: page);
+        case 'kuwo':
+          return native.searchKuwo(query: query, page: page);
+        case 'netease':
+          return native.searchNetease(query: query, page: page);
+        default:
+          return Future.value(<OnlineMusicResult>[]);
+      }
+    }
+
+    List<String> plan;
+    switch (strategy) {
+      case 'qqOnly':
+        plan = ['qq'];
+        break;
+      case 'kuwoOnly':
+        plan = ['kuwo'];
+        break;
+      case 'neteaseOnly':
+        plan = ['netease'];
+        break;
+      case 'kuwoFirst':
+        plan = ['kuwo', 'qq', 'netease'];
+        break;
+      case 'neteaseFirst':
+        plan = ['netease', 'qq', 'kuwo'];
+        break;
+      case 'qqFirst':
+      default:
+        plan = ['qq', 'kuwo', 'netease'];
+        break;
+    }
+
+    for (final key in plan) {
+      try {
+        final results = await searchOnce(key).timeout(const Duration(seconds: 10), onTimeout: () => <OnlineMusicResult>[]);
+        if (results.isNotEmpty) return results;
+      } catch (_) {}
+    }
+    return <OnlineMusicResult>[];
+  }
 
   /// 使用JS音源进行搜索（带重试机制）
   Future<List<OnlineMusicResult>> _searchUsingJsSource(
