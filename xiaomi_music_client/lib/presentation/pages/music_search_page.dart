@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/js_proxy_provider.dart';
 import '../providers/music_search_provider.dart';
 import '../../data/models/online_music_result.dart';
 import 'package:dio/dio.dart' as dio;
@@ -390,7 +391,23 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       final id = item.songId ?? '';
       if (id.isEmpty) return null;
 
-      // 优先使用隐藏WebView JS解析
+      // 0) 优先使用新的 QuickJS 代理解析（若已加载脚本）
+      try {
+        final jsProxy = ref.read(jsProxyProvider.notifier);
+        final jsProxyState = ref.read(jsProxyProvider);
+        if (jsProxyState.isInitialized && jsProxyState.currentScript != null) {
+          final mapped = (platform == 'qq') ? 'tx' : (platform == 'netease' || platform == '163') ? 'wy' : platform;
+          final url = await jsProxy.getMusicUrl(
+            source: mapped,
+            songId: id,
+            quality: '320k',
+            musicInfo: {'songmid': id, 'hash': id},
+          );
+          if (url != null && url.isNotEmpty) return url;
+        }
+      } catch (_) {}
+
+      // 1) 隐藏WebView JS解析
       try {
         final webSvc = await ref.read(webviewJsSourceServiceProvider.future);
         if (webSvc != null) {
@@ -403,7 +420,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         }
       } catch (_) {}
 
-      // 回退到内置 LocalJS 解析
+      // 2) 回退到内置 LocalJS 解析
       try {
         final jsSvc = await ref.read(jsSourceServiceProvider.future);
         if (jsSvc != null && jsSvc.isReady) {
@@ -657,12 +674,25 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         try {
           final webSvc = await ref.read(webviewJsSourceServiceProvider.future);
           final jsSvc = await ref.read(jsSourceServiceProvider.future);
+          final jsProxy = ref.read(jsProxyProvider.notifier);
+          final jsProxyState = ref.read(jsProxyProvider);
 
           if (webSvc == null && jsSvc == null) {
             throw Exception('JS解析服务未就绪');
           }
 
-          // 优先使用WebView JS解析
+          // 优先使用 QuickJS 代理解析
+          if (jsProxyState.isInitialized && jsProxyState.currentScript != null) {
+            final mapped = (platform == 'qq') ? 'tx' : (platform == 'netease' || platform == '163') ? 'wy' : platform;
+            playUrl = await jsProxy.getMusicUrl(
+              source: mapped,
+              songId: id,
+              quality: '320k',
+              musicInfo: {'songmid': id, 'hash': id},
+            );
+          }
+
+          // 次选 WebView JS解析
           if (webSvc != null) {
             playUrl = await webSvc.resolveMusicUrl(
               platform: platform,
