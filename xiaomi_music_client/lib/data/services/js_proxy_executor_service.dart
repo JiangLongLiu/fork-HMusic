@@ -43,48 +43,54 @@ class JSProxyExecutorService {
           // 调用Flutter的网络请求代理
           const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
           globalThis._pendingRequests = globalThis._pendingRequests || {};
-          globalThis._pendingRequests[requestId] = callback;
+          if (typeof callback === 'function') globalThis._pendingRequests[requestId] = callback;
           
           // 发送请求给Flutter
           const requestData = {
             id: requestId,
-            url: url,
-            options: options || {}
+            url: typeof url === 'string' ? url : url.url,
+            options: (typeof url === 'object' ? (url.options || url) : (options || {}))
           };
           console.log('[LXEnv] 调用Flutter网络请求代理，请求数据:', requestData);
           globalThis._flutterRequestProxy(requestData);
+
+          // 返回Promise以支持async/await
+          return new Promise((resolve, reject) => {
+            const originalCallback = globalThis._pendingRequests[requestId];
+            globalThis._pendingRequests[requestId] = function(err, response) {
+              if (originalCallback) {
+                try { originalCallback(err, response); } catch (e) { console.warn('[LXEnv] 回调执行出错:', e); }
+              }
+              if (err) reject(err); else resolve(response);
+            };
+          });
         },
         
         // 事件监听
         on: function(eventName, handler) {
           console.log('[LXEnv] 注册事件监听:', eventName);
           globalThis._lxHandlers = globalThis._lxHandlers || {};
-          globalThis._lxHandlers[eventName] = handler;
+          if (!globalThis._lxHandlers[eventName]) globalThis._lxHandlers[eventName] = [];
+          globalThis._lxHandlers[eventName].push(handler);
         },
         
-        // 发送事件
+        // 发送事件（给Flutter）
         send: function(eventName, data) {
           console.log('[LXEnv] 发送事件:', eventName, data);
-          globalThis._flutterEventSender(JSON.stringify({
-            event: eventName,
-            data: data
-          }));
+          globalThis._flutterEventSender(JSON.stringify({ event: eventName, data: data }));
+          return Promise.resolve(data);
         },
+        
+        // emit别名
+        emit: function(eventName, data) { return this.send(eventName, data); },
         
         // 工具函数
         utils: {
           buffer: {
-            from: function(data, encoding) {
-              return { data: data, encoding: encoding || 'utf-8' };
-            },
+            from: function(data, encoding) { return { data: data, encoding: encoding || 'utf-8' }; },
             bufToString: function(buf, encoding) {
-              if (encoding === 'base64') {
-                return btoa(unescape(encodeURIComponent(buf.data)));
-              } else if (encoding === 'hex') {
-                return buf.data.split('').map(c => 
-                  c.charCodeAt(0).toString(16).padStart(2, '0')
-                ).join('');
-              }
+              if (encoding === 'base64') return btoa(unescape(encodeURIComponent(buf.data)));
+              if (encoding === 'hex') return buf.data.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
               return buf.data;
             }
           }
@@ -93,15 +99,59 @@ class JSProxyExecutorService {
         // 环境信息
         env: 'desktop',
         version: '1.0.0',
-        currentScriptInfo: {
-          version: '1.0.0'
-        }
+        currentScriptInfo: { version: '1.0.0' }
       };
       
       // 初始化全局变量
       globalThis._lxHandlers = {};
       globalThis._pendingRequests = {};
       globalThis._musicSources = {};
+      
+      // 提供脚本注册函数（LX 兼容）
+      globalThis.registerScript = function(scriptInfo) {
+        console.log('[LXEnv] 注册脚本:', scriptInfo);
+        try {
+          if (scriptInfo && scriptInfo.sources) {
+            globalThis._musicSources = scriptInfo.sources;
+            setTimeout(() => {
+              try { if (globalThis.lx && globalThis.lx.send) globalThis.lx.send('inited', { status: true, sources: scriptInfo.sources }); } catch (e) {}
+            }, 0);
+          }
+          return true;
+        } catch (e) {
+          console.warn('[LXEnv] 注册脚本失败:', e && e.message);
+          return false;
+        }
+      };
+      globalThis.register = globalThis.registerScript;
+      
+      // 模拟window并暴露必要API（部分脚本使用 window.lx）
+      if (typeof window === 'undefined') { globalThis.window = globalThis; }
+      window.lx = globalThis.lx;
+      window.EVENT_NAMES = globalThis.lx.EVENT_NAMES;
+      window.request = globalThis.lx.request;
+      window.on = globalThis.lx.on;
+      window.send = globalThis.lx.send;
+      window.emit = globalThis.lx.emit;
+      window.utils = globalThis.lx.utils;
+      window.env = globalThis.lx.env;
+      window.version = globalThis.lx.version;
+
+      // 内部分发器，向脚本内已注册处理器分发事件
+      globalThis._dispatchEventToScript = function(eventName, data) {
+        try {
+          console.log('[LXEnv] 分发事件到脚本:', eventName, data);
+          const list = (globalThis._lxHandlers && globalThis._lxHandlers[eventName]) || [];
+          const handlers = Array.isArray(list) ? list : [list];
+          let lastResult = null;
+          for (const h of handlers) {
+            if (typeof h === 'function') {
+              try { const r = h(data); lastResult = r !== undefined ? r : lastResult; } catch (e) { console.warn('[LXEnv] 事件处理器异常:', e); }
+            }
+          }
+          return lastResult;
+        } catch (e) { console.warn('[LXEnv] 分发事件异常:', e); return null; }
+      };
       
       console.log('[LXEnv] ✅ LX Music环境初始化完成');
     ''';
@@ -200,6 +250,11 @@ class JSProxyExecutorService {
         print('[JSProxy] ❌ 错误堆栈: ${StackTrace.current}');
       }
     });
+
+    // 在环境初始化后，稍后分发一次 inited，以便脚本在收到后注册处理器
+    try {
+      _runtime!.evaluate("setTimeout(function(){ try { if (typeof _dispatchEventToScript === 'function') _dispatchEventToScript('inited', { status: true, host: 'flutter' }); } catch(e){} }, 100);");
+    } catch (_) {}
   }
 
   /// 处理JS发起的网络请求
@@ -379,6 +434,11 @@ class JSProxyExecutorService {
 
       // 等待脚本初始化
       await Future.delayed(const Duration(milliseconds: 500));
+
+      // 触发一次 inited 给脚本，促进其注册 request 处理器
+      try {
+        _runtime!.evaluate("typeof _dispatchEventToScript === 'function' && _dispatchEventToScript('inited', { status: true, from: 'host' });");
+      } catch (_) {}
 
       // 检查脚本是否正确加载
       final checkResult = _runtime!.evaluate('''
