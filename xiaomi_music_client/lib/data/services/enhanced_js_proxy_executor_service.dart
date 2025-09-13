@@ -801,6 +801,82 @@ class EnhancedJSProxyExecutorService {
       ''');
       print('[EnhancedJSProxy] 🔍 脚本延迟检查: ${delayedCheck.stringResult}');
 
+      // 如果仍未注册request处理器，自动注入兼容处理器
+      try {
+        final needCompat = _runtime!.evaluate('''
+          (function(){
+            try {
+              const count = (globalThis._lxHandlers && globalThis._lxHandlers.request) ?
+                (Array.isArray(globalThis._lxHandlers.request) ? globalThis._lxHandlers.request.length : 1) : 0;
+              return count === 0;
+            } catch(e) { return true; }
+          })()
+        ''');
+        if (needCompat.rawResult == true) {
+          print('[EnhancedJSProxy] ♻️ 注入兼容request处理器');
+          _runtime!.evaluate('''
+            (function(){
+              try {
+                if (!globalThis._lxHandlers) globalThis._lxHandlers = {};
+                if (!globalThis._lxHandlers.request) globalThis._lxHandlers.request = [];
+                
+                const compatHandler = function(request){
+                  try {
+                    let result = null;
+                    // 1) 优先通用函数
+                    if (!result && typeof getMusicUrl === 'function') result = getMusicUrl(request.info);
+                    if (!result && typeof handleGetMusicUrl === 'function') result = handleGetMusicUrl(request.info);
+                    
+                    // 2) 平台特定函数名模式
+                    if (!result) {
+                      const names = [
+                        request.source + 'GetMusicUrl',
+                        'get' + request.source.toUpperCase() + 'Url',
+                        request.source + '_getMusicUrl',
+                        request.source + 'Music',
+                        'handle' + request.source.toUpperCase() + 'Url',
+                        request.source.toUpperCase() + '_MUSIC_URL'
+                      ];
+                      for (const n of names) {
+                        if (typeof globalThis[n] === 'function') { result = globalThis[n](request.info); if (result) break; }
+                      }
+                    }
+                    
+                    // 3) apis 对象风格
+                    if (!result && typeof apis === 'object' && apis && apis[request.source] && typeof apis[request.source].musicUrl === 'function') {
+                      const q = request.info && request.info.type;
+                      const mi = request.info && request.info.musicInfo;
+                      try { result = apis[request.source].musicUrl(mi, q); } catch(_) {}
+                    }
+                    
+                    // 4) sources/handlers 对象风格
+                    if (!result && typeof sources === 'object' && sources && sources[request.source] && typeof sources[request.source].musicUrl === 'function') {
+                      try { result = sources[request.source].musicUrl(request.info); } catch(_) {}
+                    }
+                    
+                    // 5) 尝试任何包含关键字的函数
+                    if (!result) {
+                      const allFunctions = Object.getOwnPropertyNames(globalThis).filter(name => 
+                        typeof globalThis[name] === 'function' &&
+                        (name.toLowerCase().includes('music') || name.toLowerCase().includes('url') || name.toLowerCase().includes(request.source.toLowerCase()))
+                      );
+                      for (const fn of allFunctions) {
+                        try { const r = globalThis[fn](request.info || request); if (r) { result = r; break; } } catch(e) {}
+                      }
+                    }
+                    
+                    return result;
+                  } catch(e) { console.warn('[CompatHandler] 执行失败:', e); return null; }
+                };
+                
+                globalThis._lxHandlers.request.push(compatHandler);
+                return true;
+              } catch (e) { return false; }
+            })()
+          ''');
+        }
+      } catch (_) {}
+
       // 检查脚本是否正确加载
       final checkResult = _runtime!.evaluate('''
         (function() {
