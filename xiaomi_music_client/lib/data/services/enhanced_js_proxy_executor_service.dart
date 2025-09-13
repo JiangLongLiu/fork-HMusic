@@ -305,7 +305,18 @@ class EnhancedJSProxyExecutorService {
       if (typeof window === 'undefined') {
         globalThis.window = globalThis;
       }
+      // 🔥 关键修复：确保window.lx指向正确的lx对象
       window.lx = globalThis.lx;
+      
+      // 🔥 同时确保window上也有这些函数的直接访问
+      window.EVENT_NAMES = globalThis.lx.EVENT_NAMES;
+      window.request = globalThis.lx.request;
+      window.on = globalThis.lx.on;
+      window.send = globalThis.lx.send;
+      window.emit = globalThis.lx.emit;
+      window.utils = globalThis.lx.utils;
+      window.env = globalThis.lx.env;
+      window.version = globalThis.lx.version;
       
       // 模拟document对象
       if (typeof document === 'undefined') {
@@ -683,18 +694,24 @@ class EnhancedJSProxyExecutorService {
 
       // 执行JS脚本
       print('[EnhancedJSProxy] 🚀 执行脚本内容，长度: ${scriptContent.length} 字符');
-      print('[EnhancedJSProxy] 🚀 脚本前100字符: ${scriptContent.substring(0, scriptContent.length > 100 ? 100 : scriptContent.length)}');
-      
+      print(
+        '[EnhancedJSProxy] 🚀 脚本前100字符: ${scriptContent.substring(0, scriptContent.length > 100 ? 100 : scriptContent.length)}',
+      );
+
       _runtime!.evaluate(scriptContent);
       _currentScript = scriptContent;
-      
+
       // 立即检查脚本执行后的状态
       final immediateCheck = _runtime!.evaluate('''
         JSON.stringify({
           globalThisKeys: Object.keys(globalThis).filter(k => k.includes('lx') || k.includes('on') || k.includes('EVENT')),
+          windowKeys: typeof window !== 'undefined' ? Object.keys(window).filter(k => k.includes('lx') || k.includes('on') || k.includes('EVENT')) : null,
           lxKeys: globalThis.lx ? Object.keys(globalThis.lx) : null,
+          windowLxKeys: typeof window !== 'undefined' && window.lx ? Object.keys(window.lx) : null,
           handlersAfterScript: globalThis._lxHandlers,
           hasOnFunction: typeof globalThis.on === 'function',
+          hasWindowLx: typeof window !== 'undefined' && typeof window.lx !== 'undefined',
+          hasWindowOn: typeof window !== 'undefined' && typeof window.lx !== 'undefined' && typeof window.lx.on === 'function',
           scriptExecuted: true
         })
       ''');
