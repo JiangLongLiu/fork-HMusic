@@ -253,7 +253,9 @@ class JSProxyExecutorService {
 
     // 在环境初始化后，稍后分发一次 inited，以便脚本在收到后注册处理器
     try {
-      _runtime!.evaluate("setTimeout(function(){ try { if (typeof _dispatchEventToScript === 'function') _dispatchEventToScript('inited', { status: true, host: 'flutter' }); } catch(e){} }, 100);");
+      _runtime!.evaluate(
+        "setTimeout(function(){ try { if (typeof _dispatchEventToScript === 'function') _dispatchEventToScript('inited', { status: true, host: 'flutter' }); } catch(e){} }, 100);",
+      );
     } catch (_) {}
   }
 
@@ -437,7 +439,9 @@ class JSProxyExecutorService {
 
       // 触发一次 inited 给脚本，促进其注册 request 处理器
       try {
-        _runtime!.evaluate("typeof _dispatchEventToScript === 'function' && _dispatchEventToScript('inited', { status: true, from: 'host' });");
+        _runtime!.evaluate(
+          "typeof _dispatchEventToScript === 'function' && _dispatchEventToScript('inited', { status: true, from: 'host' });",
+        );
       } catch (_) {}
 
       // 检查脚本是否正确加载

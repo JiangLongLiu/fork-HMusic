@@ -225,7 +225,15 @@ class EnhancedJSProxyExecutorService {
         
         // emit别名（向后兼容）
         emit: function(eventName, data) {
-          return this.send(eventName, data);
+          try {
+            if (typeof globalThis._dispatchEventToScript === 'function') {
+              return globalThis._dispatchEventToScript(eventName, data);
+            }
+            return null;
+          } catch (e) {
+            console.warn('[LXEnv] emit 分发失败:', e);
+            return null;
+          }
         },
         
         // 工具函数集合
@@ -903,6 +911,13 @@ class EnhancedJSProxyExecutorService {
                   if (result) break;
                 }
               }
+            }
+            
+            // 方式1.5: 通过 lx.emit 触发（如果脚本使用官方事件模型）
+            if (!result && typeof lx !== 'undefined' && typeof lx.emit === 'function') {
+              console.log('[EnhancedJSProxy] 尝试通过 lx.emit 分发 request');
+              result = lx.emit(lx.EVENT_NAMES.request, request);
+              console.log('[EnhancedJSProxy] lx.emit 返回:', result);
             }
             
             // 方式2: 使用内部分发器
