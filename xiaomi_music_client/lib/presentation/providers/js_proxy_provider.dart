@@ -1,6 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/js_proxy_executor_service.dart';
 import '../../data/models/online_music_result.dart';
+import '../../data/models/js_script.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+class JSProxyScriptReader {
+  Future<String?> readLocal(String path) async {
+    try {
+      // Defer to js_script_manager logic if needed; simple read here
+      return await File(path).readAsString();
+    } catch (_) {
+      return null;
+    }
+  }
+}
+// duplicate removed
 
 /// JS代理执行器状态
 class JSProxyState {
@@ -95,6 +110,36 @@ class JSProxyNotifier extends StateNotifier<JSProxyState> {
     } catch (e) {
       state = state.copyWith(isLoading: false, error: '加载异常: $e');
       print('[JSProxyProvider] ❌ 脚本加载异常: $e');
+      return false;
+    }
+  }
+
+  /// 根据 JsScript 条目加载脚本（支持URL/本地文件/内置）
+  Future<bool> loadScriptByScript(JsScript script) async {
+    try {
+      String? content;
+      String scriptName = script.name;
+
+      if (script.source == JsScriptSource.localFile) {
+        // 读取本地文件内容
+        final manager = JSProxyScriptReader();
+        content = await manager.readLocal(script.content);
+      } else {
+        // 视为URL，直接下载文本
+        final url = script.content;
+        final resp = await http.get(Uri.parse(url));
+        if (resp.statusCode == 200) {
+          content = resp.body;
+        }
+      }
+
+      if (content == null || content.trim().isEmpty) {
+        print('[JSProxyProvider] ❌ 读取脚本内容失败');
+        return false;
+      }
+      return await loadScript(content, scriptName: scriptName);
+    } catch (e) {
+      print('[JSProxyProvider] ❌ loadScriptByScript 异常: $e');
       return false;
     }
   }

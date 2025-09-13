@@ -42,17 +42,17 @@ class QQMusicTransformer extends Transformer {
 
 class NativeMusicSearchService {
   NativeMusicSearchService()
-      : _dio = Dio(
-          BaseOptions(
-            connectTimeout: const Duration(seconds: 15),
-            receiveTimeout: const Duration(seconds: 30),
-            headers: const {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Accept': 'application/json, text/plain, */*',
-            },
-          ),
-        )..transformer = QQMusicTransformer();
+    : _dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 30),
+          headers: const {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+          },
+        ),
+      )..transformer = QQMusicTransformer();
 
   final Dio _dio;
 
@@ -90,13 +90,15 @@ class NativeMusicSearchService {
       final response = await _dio.post(
         apiUrl,
         data: payload,
-        options: Options(headers: const {
-          'User-Agent':
-              'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
-          'Accept': 'application/json',
-          'Accept-Encoding': 'gzip',
-          'Content-Type': 'application/json',
-        }),
+        options: Options(
+          headers: const {
+            'User-Agent':
+                'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
 
       dynamic data = response.data;
@@ -120,17 +122,20 @@ class NativeMusicSearchService {
       if (songs == null || songs.isEmpty) return <OnlineMusicResult>[];
 
       return songs.whereType<Map<String, dynamic>>().map((song) {
-        final String id = (song['mid'] ?? song['songmid'] ?? song['id'] ?? '')
-            .toString();
+        final String id =
+            (song['mid'] ?? song['songmid'] ?? song['id'] ?? '').toString();
         final String title = (song['title'] ?? song['name'] ?? '').toString();
 
         String author = '';
         final singers = song['singer'];
         if (singers is List) {
           author = singers
-              .map((s) => (s is Map && s['name'] != null)
-                  ? s['name'].toString()
-                  : s.toString())
+              .map(
+                (s) =>
+                    (s is Map && s['name'] != null)
+                        ? s['name'].toString()
+                        : s.toString(),
+              )
               .join('/');
         }
 
@@ -191,13 +196,15 @@ class NativeMusicSearchService {
           'issubtitle': '1',
           '_': DateTime.now().millisecondsSinceEpoch.toString(),
         },
-        options: Options(headers: const {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
-          'Connection': 'Keep-Alive',
-          'Accept': 'application/json',
-          'Accept-Encoding': 'gzip',
-        }),
+        options: Options(
+          headers: const {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+            'Connection': 'Keep-Alive',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+          },
+        ),
       );
 
       final data = response.data;
@@ -217,9 +224,10 @@ class NativeMusicSearchService {
 
       return songs.whereType<Map<String, dynamic>>().map((song) {
         final String rawId = (song['MUSICRID'] ?? song['rid'] ?? '').toString();
-        final String id = rawId.startsWith('MUSIC_')
-            ? rawId.replaceFirst('MUSIC_', '')
-            : rawId;
+        final String id =
+            rawId.startsWith('MUSIC_')
+                ? rawId.replaceFirst('MUSIC_', '')
+                : rawId;
         final String title = _stripHtmlTags(
           (song['SONGNAME'] ?? song['name'] ?? '').toString(),
         );
@@ -326,9 +334,12 @@ class NativeMusicSearchService {
         final ar = song['ar'] ?? song['artists'];
         if (ar is List) {
           author = ar
-              .map((a) => (a is Map && a['name'] != null)
-                  ? a['name'].toString()
-                  : a.toString())
+              .map(
+                (a) =>
+                    (a is Map && a['name'] != null)
+                        ? a['name'].toString()
+                        : a.toString(),
+              )
               .join('/');
         }
 
@@ -364,6 +375,8 @@ class NativeMusicSearchService {
   }
 }
 
-final nativeMusicSearchServiceProvider = Provider<NativeMusicSearchService>((ref) {
+final nativeMusicSearchServiceProvider = Provider<NativeMusicSearchService>((
+  ref,
+) {
   return NativeMusicSearchService();
 });

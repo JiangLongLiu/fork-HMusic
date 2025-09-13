@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/source_settings_provider.dart';
 import '../../providers/js_script_manager_provider.dart';
+import '../../providers/js_proxy_provider.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../../data/models/js_script.dart';
 
@@ -559,6 +560,15 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
       );
 
       await ref.read(sourceSettingsNotifierProvider).save(newSettings);
+      
+      // 保存后尝试将所选脚本加载到 QuickJS 代理，确保播放解析使用所选脚本
+      if (_primary == 'js_external' && selectedScript != null) {
+        try {
+          await ref
+              .read(jsProxyProvider.notifier)
+              .loadScriptByScript(selectedScript);
+        } catch (_) {}
+      }
       if (!mounted) return;
 
       AppSnackBar.show(
