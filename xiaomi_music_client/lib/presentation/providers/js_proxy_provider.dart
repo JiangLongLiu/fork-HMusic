@@ -77,25 +77,43 @@ class JSProxyNotifier extends StateNotifier<JSProxyState> {
 
       print('[JSProxyProvider] ✅ JS代理服务初始化完成');
 
-      // Auto-load currently selected script if JS flow is active
-      try {
-        final settings = _ref.read(sourceSettingsProvider);
-        if (settings.primarySource == 'js_external') {
-          final manager = _ref.read(jsScriptManagerProvider.notifier);
-          final selected = manager.selectedScript;
-          if (selected != null) {
-            print('[JSProxyProvider] 🚀 自动加载已选脚本: ${selected.name}');
-            await loadScriptByScript(selected);
-          } else {
-            print('[JSProxyProvider] ⚠️ 未选择脚本，跳过自动加载');
-          }
-        }
-      } catch (e) {
-        print('[JSProxyProvider] ⚠️ 自动加载脚本失败: $e');
-      }
+      // 延迟自动加载，等待其他provider初始化完成
+      Future.delayed(const Duration(milliseconds: 1000), () async {
+        await _autoLoadSelectedScript();
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: '初始化失败: $e');
       print('[JSProxyProvider] ❌ 初始化失败: $e');
+    }
+  }
+
+  /// 自动加载已选脚本
+  Future<void> _autoLoadSelectedScript() async {
+    try {
+      final settings = _ref.read(sourceSettingsProvider);
+      print('[JSProxyProvider] 📋 检查自动加载条件: primarySource=${settings.primarySource}');
+      
+      if (settings.primarySource == 'js_external') {
+        final scripts = _ref.read(jsScriptManagerProvider);
+        final manager = _ref.read(jsScriptManagerProvider.notifier);
+        final selected = manager.selectedScript;
+        
+        print('[JSProxyProvider] 📋 脚本列表数量: ${scripts.length}');
+        print('[JSProxyProvider] 📋 当前选中ID: ${manager.selectedScriptId}');
+        print('[JSProxyProvider] 📋 选中脚本: ${selected?.name ?? 'null'}');
+        
+        if (selected != null) {
+          print('[JSProxyProvider] 🚀 自动加载已选脚本: ${selected.name}');
+          final success = await loadScriptByScript(selected);
+          print('[JSProxyProvider] 📊 自动加载结果: $success');
+        } else {
+          print('[JSProxyProvider] ⚠️ 未选择脚本或脚本管理器未加载，跳过自动加载');
+        }
+      } else {
+        print('[JSProxyProvider] ℹ️ 不是JS流程，跳过自动加载');
+      }
+    } catch (e) {
+      print('[JSProxyProvider] ❌ 自动加载脚本异常: $e');
     }
   }
 
