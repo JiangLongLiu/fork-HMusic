@@ -407,6 +407,17 @@ class EnhancedJSProxyExecutorService {
           return Math.abs(hash).toString(16);
         };
       }
+
+      // 🔥 关键修复：将lx对象的函数暴露到全局作用域
+      // 这样脚本可以使用: const { EVENT_NAMES, request, on, send, utils, env, version } = globalThis.lx
+      globalThis.EVENT_NAMES = globalThis.lx.EVENT_NAMES;
+      globalThis.request = globalThis.lx.request;
+      globalThis.on = globalThis.lx.on;
+      globalThis.send = globalThis.lx.send;
+      globalThis.emit = globalThis.lx.emit;
+      globalThis.utils = globalThis.lx.utils;
+      globalThis.env = globalThis.lx.env;
+      globalThis.version = globalThis.lx.version;
     ''');
 
     // 设置网络请求和事件处理
@@ -696,7 +707,14 @@ class EnhancedJSProxyExecutorService {
               scriptRegistered: globalThis._scriptRegistered || false,
               hasLxExport: typeof globalThis.lx !== 'undefined',
               hasScriptManifest: typeof scriptManifest !== 'undefined',
-              hasGetMusicUrl: typeof getMusicUrl !== 'undefined'
+              hasGetMusicUrl: typeof getMusicUrl !== 'undefined',
+              // 详细调试信息
+              requestHandlers: globalThis._lxHandlers ? globalThis._lxHandlers.request : null,
+              requestHandlerCount: globalThis._lxHandlers && globalThis._lxHandlers.request ? 
+                (Array.isArray(globalThis._lxHandlers.request) ? globalThis._lxHandlers.request.length : 1) : 0,
+              onFunctionExists: typeof globalThis.on === 'function',
+              lxOnExists: globalThis.lx && typeof globalThis.lx.on === 'function',
+              allHandlers: globalThis._lxHandlers
             };
           } catch (e) {
             return { error: e.toString() };
