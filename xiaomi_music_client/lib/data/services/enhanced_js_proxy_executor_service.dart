@@ -565,10 +565,9 @@ class EnhancedJSProxyExecutorService {
       ''';
 
       _runtime!.evaluate(callbackScript);
-
     } catch (e) {
       print('[EnhancedJSProxy] ❌ 网络请求失败: $e');
-      
+
       // 尝试获取请求ID来发送错误回调
       String requestId = 'unknown';
       try {
@@ -582,7 +581,7 @@ class EnhancedJSProxyExecutorService {
         }
         requestId = errorData['id'] as String? ?? 'unknown';
       } catch (_) {}
-      
+
       final errorScript = '''
         (function() {
           try {
@@ -631,7 +630,9 @@ class EnhancedJSProxyExecutorService {
           if (eventPayload != null && eventPayload['sources'] != null) {
             final sourcesJson = jsonEncode(eventPayload['sources']);
             _runtime!.evaluate('globalThis._musicSources = $sourcesJson;');
-            print('[EnhancedJSProxy] 📋 已存储音源信息: ${eventPayload['sources'].keys.join(', ')}');
+            print(
+              '[EnhancedJSProxy] 📋 已存储音源信息: ${eventPayload['sources'].keys.join(', ')}',
+            );
           }
           break;
         case 'updateAlert':
@@ -655,8 +656,10 @@ class EnhancedJSProxyExecutorService {
       print('[EnhancedJSProxy] 📜 开始加载JS脚本...');
 
       // 保存脚本内容供检测使用
-      _runtime!.evaluate('globalThis._currentScriptContent = ${jsonEncode(scriptContent)};');
-      
+      _runtime!.evaluate(
+        'globalThis._currentScriptContent = ${jsonEncode(scriptContent)};',
+      );
+
       // 执行JS脚本
       _runtime!.evaluate(scriptContent);
       _currentScript = scriptContent;
@@ -727,12 +730,8 @@ class EnhancedJSProxyExecutorService {
         'source': source,
         'info': {
           'type': quality,
-          'musicInfo': {
-            'songmid': songId,
-            'hash': songId,
-            ...?musicInfo,
-          }
-        }
+          'musicInfo': {'songmid': songId, 'hash': songId, ...?musicInfo},
+        },
       };
 
       print('[EnhancedJSProxy] 调用JS处理函数: $requestParams');
@@ -786,28 +785,37 @@ class EnhancedJSProxyExecutorService {
             
             if (result && typeof result.then === 'function') {
               console.log('[EnhancedJSProxy] 检测到Promise，开始等待...');
-              return { success: true, isPromise: true };
+              return JSON.stringify({ success: true, isPromise: true });
             } else if (result) {
               console.log('[EnhancedJSProxy] 同步结果:', result);
-              return { success: true, result: result };
+              return JSON.stringify({ success: true, result: result });
             } else {
-              return { success: false, error: 'No suitable handler found' };
+              return JSON.stringify({ success: false, error: 'No suitable handler found' });
             }
           } catch (e) {
             console.error('[EnhancedJSProxy] JS执行失败:', e);
-            return { success: false, error: e.toString() };
+            return JSON.stringify({ success: false, error: e.toString() });
           }
         })()
       ''');
 
       print('[EnhancedJSProxy] 🔍 JS执行结果: ${jsResult.stringResult}');
 
-      final resultData = jsonDecode(jsResult.stringResult);
+      // 解析JS返回结果
+      Map<String, dynamic> resultData;
+      try {
+        resultData = jsonDecode(jsResult.stringResult);
+      } catch (e) {
+        print('[EnhancedJSProxy] ❌ JSON解析失败: $e');
+        print('[EnhancedJSProxy] 原始结果: ${jsResult.stringResult}');
+        return null;
+      }
 
       if (resultData['success'] == true) {
         if (resultData['isPromise'] == true) {
           // 等待Promise完成
-          for (int i = 0; i < 200; i++) { // 20秒超时
+          for (int i = 0; i < 200; i++) {
+            // 20秒超时
             await Future.delayed(const Duration(milliseconds: 100));
 
             final checkResult = _runtime!.evaluate('''
@@ -838,7 +846,8 @@ class EnhancedJSProxyExecutorService {
               final musicUrl = checkData['result'];
               print('[EnhancedJSProxy] ✅ Promise完成，获取音乐链接: $musicUrl');
               return musicUrl;
-            } else if (checkData['success'] == false && checkData['pending'] != true) {
+            } else if (checkData['success'] == false &&
+                checkData['pending'] != true) {
               print('[EnhancedJSProxy] ❌ Promise失败: ${checkData['error']}');
               return null;
             }
@@ -889,6 +898,7 @@ class EnhancedJSProxyExecutorService {
       return {};
     }
   }
+
 
   /// 释放资源
   void dispose() {

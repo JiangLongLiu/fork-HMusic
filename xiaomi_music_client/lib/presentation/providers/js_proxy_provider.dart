@@ -60,7 +60,8 @@ class JSProxyNotifier extends StateNotifier<JSProxyState> {
     _initializeService();
   }
 
-  final EnhancedJSProxyExecutorService _service = EnhancedJSProxyExecutorService();
+  final EnhancedJSProxyExecutorService _service =
+      EnhancedJSProxyExecutorService();
 
   /// 初始化服务
   Future<void> _initializeService() async {
