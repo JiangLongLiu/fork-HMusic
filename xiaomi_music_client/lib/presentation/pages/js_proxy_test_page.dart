@@ -485,8 +485,8 @@ send(EVENT_NAMES.inited, { status: true, openDevTools: DEV_ENABLE, sources: musi
                               (jsProxyState.isLoading || _isFetchingUrl)
                                   ? null
                                   : () => _importScriptFromUrl(
-                                        loadAfterImport: true,
-                                      ),
+                                    loadAfterImport: true,
+                                  ),
                           child: Text(_isFetchingUrl ? '下载中...' : '从链接加载'),
                         ),
                         ElevatedButton(
@@ -494,8 +494,8 @@ send(EVENT_NAMES.inited, { status: true, openDevTools: DEV_ENABLE, sources: musi
                               (jsProxyState.isLoading || _isFetchingUrl)
                                   ? null
                                   : () => _importScriptFromLocal(
-                                        loadAfterImport: true,
-                                      ),
+                                    loadAfterImport: true,
+                                  ),
                           child: const Text('本地导入并加载'),
                         ),
                       ],
