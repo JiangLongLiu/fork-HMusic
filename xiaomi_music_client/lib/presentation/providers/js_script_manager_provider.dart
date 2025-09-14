@@ -9,16 +9,16 @@ import '../../data/models/js_script.dart';
 class JsScriptManager extends StateNotifier<List<JsScript>> {
   static const _kScriptList = 'js_script_list';
   static const _kSelectedScriptId = 'selected_script_id';
-  
+
   String? _selectedScriptId;
   String? get selectedScriptId => _selectedScriptId;
-  JsScript? get selectedScript => 
-      state.isNotEmpty && _selectedScriptId != null 
-        ? state.firstWhere(
+  JsScript? get selectedScript =>
+      state.isNotEmpty && _selectedScriptId != null
+          ? state.firstWhere(
             (s) => s.id == _selectedScriptId,
             orElse: () => state.first,
           )
-        : null;
+          : null;
 
   JsScriptManager() : super([]) {
     _loadScripts();
@@ -29,11 +29,11 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
       final prefs = await SharedPreferences.getInstance();
       final scriptsJson = prefs.getString(_kScriptList);
       final selectedId = prefs.getString(_kSelectedScriptId);
-      
+
       List<JsScript> scripts = [];
-      
+
       // 公开版本不包含内置脚本，用户需要自行添加JS音源
-      
+
       // 加载用户导入的脚本
       if (scriptsJson != null && scriptsJson.isNotEmpty) {
         final List<dynamic> scriptsList = jsonDecode(scriptsJson);
@@ -45,11 +45,14 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
           }
         }
       }
-      
+
       state = scripts;
-      _selectedScriptId = selectedId ?? (scripts.isNotEmpty ? scripts.first.id : null);
-      
-      print('[XMC] 📚 [JsScriptManager] 加载了 ${scripts.length} 个脚本，当前选中: $_selectedScriptId');
+      _selectedScriptId =
+          selectedId ?? (scripts.isNotEmpty ? scripts.first.id : null);
+
+      print(
+        '[XMC] 📚 [JsScriptManager] 加载了 ${scripts.length} 个脚本，当前选中: $_selectedScriptId',
+      );
     } catch (e) {
       print('[XMC] ❌ [JsScriptManager] 加载脚本失败: $e');
       state = [];
@@ -59,16 +62,18 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
   Future<void> _saveScripts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // 只保存非内置脚本
       final userScripts = state.where((s) => !s.isBuiltIn).toList();
-      final scriptsJson = jsonEncode(userScripts.map((s) => s.toMap()).toList());
-      
+      final scriptsJson = jsonEncode(
+        userScripts.map((s) => s.toMap()).toList(),
+      );
+
       await prefs.setString(_kScriptList, scriptsJson);
       if (_selectedScriptId != null) {
         await prefs.setString(_kSelectedScriptId, _selectedScriptId!);
       }
-      
+
       print('[XMC] 💾 [JsScriptManager] 已保存 ${userScripts.length} 个用户脚本');
     } catch (e) {
       print('[XMC] ❌ [JsScriptManager] 保存脚本失败: $e');
@@ -90,20 +95,21 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
 
       final filePath = result.files.single.path!;
       final fileName = result.files.single.name;
-      
+
       // 读取文件内容以验证
       final file = File(filePath);
       final content = await file.readAsString();
-      
+
       if (content.trim().isEmpty) {
         print('[XMC] ❌ [JsScriptManager] 脚本文件为空');
         return false;
       }
 
       // 生成脚本名称（去掉.js后缀）
-      final scriptName = fileName.endsWith('.js') 
-          ? fileName.substring(0, fileName.length - 3)
-          : fileName;
+      final scriptName =
+          fileName.endsWith('.js')
+              ? fileName.substring(0, fileName.length - 3)
+              : fileName;
 
       final script = JsScript(
         id: const Uuid().v4(),
@@ -118,7 +124,7 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
       final existingIndex = state.indexWhere(
         (s) => s.name == script.name && s.source == JsScriptSource.localFile,
       );
-      
+
       if (existingIndex >= 0) {
         // 替换已存在的脚本
         final newState = [...state];
@@ -159,7 +165,7 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
       final existingIndex = state.indexWhere(
         (s) => s.name == script.name && s.source == JsScriptSource.url,
       );
-      
+
       if (existingIndex >= 0) {
         // 替换已存在的脚本
         final newState = [...state];
@@ -189,12 +195,12 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
     }
 
     state = state.where((s) => s.id != scriptId).toList();
-    
+
     // 如果删除的是当前选中的脚本，自动选择第一个
     if (_selectedScriptId == scriptId && state.isNotEmpty) {
       _selectedScriptId = state.first.id;
     }
-    
+
     await _saveScripts();
     print('[XMC] 🗑️ [JsScriptManager] 删除脚本: ${script.name}');
   }
@@ -233,10 +239,10 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
   }
 }
 
-final jsScriptManagerProvider = 
+final jsScriptManagerProvider =
     StateNotifierProvider<JsScriptManager, List<JsScript>>((ref) {
-  return JsScriptManager();
-});
+      return JsScriptManager();
+    });
 
 // 获取当前选中的脚本
 final selectedJsScriptProvider = Provider<JsScript?>((ref) {
