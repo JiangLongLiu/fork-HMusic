@@ -212,7 +212,7 @@ class SponsorPage extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child:                     Text(
+                    child: Text(
                       '赞赏纯属自愿，应用永远免费使用！\n您的每一份支持都是对开发者最大的鼓励 ❤️',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.error,
@@ -281,31 +281,30 @@ class SponsorPage extends StatelessWidget {
   void _showWechatOfficialDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('关注公众号'),
-        content: const Text(
-          '感谢您的关注！\n\n您可以关注我们的微信公众号，获取：\n\n• 应用使用教程\n• 最新功能介绍\n• 问题解答和技巧\n• 开发进展动态\n\n公众号名称：【请替换为您的公众号名称】',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // 复制公众号名称
-              Clipboard.setData(
-                const ClipboardData(text: '【请替换为您的公众号名称】'),
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('公众号名称已复制到剪贴板')),
-              );
-            },
-            child: const Text('复制公众号名称'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('关注公众号'),
+            content: const Text(
+              '感谢您的关注！\n\n您可以关注我们的微信公众号，获取：\n\n• 应用使用教程\n• 最新功能介绍\n• 问题解答和技巧\n• 开发进展动态\n\n公众号名称：【请替换为您的公众号名称】',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // 复制公众号名称
+                  Clipboard.setData(const ClipboardData(text: '【请替换为您的公众号名称】'));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('公众号名称已复制到剪贴板')));
+                },
+                child: const Text('复制公众号名称'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('好的'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('好的'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -323,11 +322,11 @@ class SponsorPage extends StatelessWidget {
                 onPressed: () {
                   Navigator.of(context).pop();
                   // 复制分享文本
-                   Clipboard.setData(
-                     const ClipboardData(
-                       text: '推荐一个好用的小爱音箱音乐控制应用：小爱音乐盒！功能强大，完全免费 🎵',
-                     ),
-                   );
+                  Clipboard.setData(
+                    const ClipboardData(
+                      text: '推荐一个好用的小爱音箱音乐控制应用：小爱音乐盒！功能强大，完全免费 🎵',
+                    ),
+                  );
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(const SnackBar(content: Text('分享文案已复制到剪贴板')));
@@ -349,9 +348,9 @@ class SponsorPage extends StatelessWidget {
       builder:
           (context) => AlertDialog(
             title: const Text('反馈建议'),
-        content: const Text(
-          '您的意见和建议对我们非常重要！\n\n如果您在使用过程中遇到问题或有改进建议，欢迎通过以下方式联系：\n\n• 微信公众号留言\n• 邮件反馈\n• QQ群交流',
-        ),
+            content: const Text(
+              '您的意见和建议对我们非常重要！\n\n如果您在使用过程中遇到问题或有改进建议，欢迎通过以下方式联系：\n\n• 微信公众号留言\n• 邮件反馈\n• QQ群交流',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
