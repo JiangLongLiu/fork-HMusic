@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'dart:io';
+import 'package:gal/gal.dart';
 
 class SponsorPage extends StatelessWidget {
   const SponsorPage({super.key});
@@ -486,58 +483,42 @@ class SponsorPage extends StatelessWidget {
 
   Future<void> _saveQRCode(BuildContext context) async {
     try {
-      // 请求存储权限
-      final permission = await _requestStoragePermission();
-      if (!permission) {
-        _showErrorSnackBar(context, '需要存储权限才能保存图片到相册');
-        return;
-      }
-
       // 显示加载提示
       _showLoadingSnackBar(context, '正在保存图片...');
+
+      // 检查权限并请求
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        final requestGranted = await Gal.requestAccess();
+        if (!requestGranted) {
+          _showErrorSnackBar(context, '需要相册访问权限才能保存图片');
+          return;
+        }
+      }
 
       // 从assets加载图片
       final byteData = await rootBundle.load('assets/images/sponsor_qr_code.png');
       final bytes = byteData.buffer.asUint8List();
 
       // 保存到相册
-      final result = await ImageGallerySaver.saveImage(
+      await Gal.putImageBytes(
         bytes,
-        quality: 100,
         name: 'xiaoai_music_sponsor_qr_${DateTime.now().millisecondsSinceEpoch}',
       );
 
-      if (result['isSuccess'] == true) {
-        _showSuccessSnackBar(context, '赞赏码已保存到相册 📱');
-      } else {
-        _showErrorSnackBar(context, '保存失败，请重试');
-      }
+      _showSuccessSnackBar(context, '赞赏码已保存到相册 📱');
     } catch (e) {
       print('保存赞赏码失败: $e');
       if (e.toString().contains('Unable to load asset')) {
         _showErrorSnackBar(context, '请先添加赞赏码图片');
+      } else if (e.toString().contains('GalException')) {
+        _showErrorSnackBar(context, '保存失败，请检查相册权限');
       } else {
         _showErrorSnackBar(context, '保存失败: ${e.toString()}');
       }
     }
   }
 
-  Future<bool> _requestStoragePermission() async {
-    // Android 13+ 使用新的媒体权限
-    if (Platform.isAndroid) {
-      final androidInfo = await DeviceInfoPlugin().androidInfo;
-      if (androidInfo.version.sdkInt >= 33) {
-        // Android 13+
-        return await Permission.photos.request().isGranted;
-      } else {
-        // Android 12 及以下
-        return await Permission.storage.request().isGranted;
-      }
-    } else if (Platform.isIOS) {
-      return await Permission.photos.request().isGranted;
-    }
-    return true;
-  }
 
   void _showLoadingSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();

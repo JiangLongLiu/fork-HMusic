@@ -4,7 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_js
-  permission_handler_windows
+  gal
   url_launcher_windows
 )
 
