@@ -79,3 +79,12 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+
+# Google Play Core相关 (Flutter可能引用但不一定存在)
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }
+
+# Flutter引擎相关
+-keep class io.flutter.** { *; }
+-keep class io.flutter.embedding.** { *; }
+-dontwarn io.flutter.embedding.engine.deferredcomponents.**

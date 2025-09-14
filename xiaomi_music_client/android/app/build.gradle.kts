@@ -36,15 +36,15 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
             
-            // 启用代码压缩和混淆
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // 暂时禁用Android层混淆，只使用Flutter混淆
+            isMinifyEnabled = false
+            isShrinkResources = false
             
-            // R8混淆配置
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // R8混淆配置 (暂时禁用)
+            // proguardFiles(
+            //     getDefaultProguardFile("proguard-android-optimize.txt"),
+            //     "proguard-rules.pro"
+            // )
         }
     }
 }
