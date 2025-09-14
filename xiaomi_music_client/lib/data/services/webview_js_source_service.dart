@@ -701,22 +701,7 @@ class WebViewJsSourceService {
       }
 
       final List<String> urls = <String>[finalUrl]; // 使用修复后的URL
-      // 当为六音默认地址时，追加 jsDelivr 镜像
-      // 添加多个可靠的镜像源，优先使用支持完整功能的脚本
-      final fallbackUrls = [
-        // xiaoqiu.js - 优先选择，支持完整功能
-        'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js',
-        'https://cdn.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js',
-        'https://raw.githubusercontent.com/Huibq/keep-alive/main/Music_Free/xiaoqiu.js',
-      ];
-
-      // 如果当前URL不在fallback列表中，则添加所有fallback
-      if (!fallbackUrls.contains(finalUrl)) {
-        urls.addAll(fallbackUrls);
-      } else {
-        // 如果当前URL在fallback中，将其他的也加上
-        urls.addAll(fallbackUrls.where((u) => u != finalUrl));
-      }
+      // 公开版本不提供fallback音源，用户需要提供有效的JS脚本URL
       // 根据设置选择脚本源
       String? scriptText;
 

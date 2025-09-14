@@ -32,16 +32,7 @@ class JsScriptManager extends StateNotifier<List<JsScript>> {
       
       List<JsScript> scripts = [];
       
-      // 添加内置脚本
-      scripts.add(JsScript(
-        id: 'builtin_xiaoqiu',
-        name: '小秋音乐',
-        description: '内置的小秋音乐脚本',
-        source: JsScriptSource.builtin,
-        content: 'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js',
-        addedTime: DateTime(2024, 1, 1),
-        isBuiltIn: true,
-      ));
+      // 公开版本不包含内置脚本，用户需要自行添加JS音源
       
       // 加载用户导入的脚本
       if (scriptsJson != null && scriptsJson.isNotEmpty) {
@@ -249,7 +240,7 @@ final jsScriptManagerProvider =
 
 // 获取当前选中的脚本
 final selectedJsScriptProvider = Provider<JsScript?>((ref) {
-  final scripts = ref.watch(jsScriptManagerProvider);
+  ref.watch(jsScriptManagerProvider); // 监听脚本列表变化
   final manager = ref.read(jsScriptManagerProvider.notifier);
   return manager.selectedScript;
 });

@@ -27,9 +27,8 @@ class SourceSettings {
 
   const SourceSettings({
     this.enabled = true,
-    // 使用支持完整功能的xiaoqiu.js作为默认脚本
-    this.scriptUrl =
-        'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js',
+    // 公开版本不提供默认JS脚本，用户需要自行添加
+    this.scriptUrl = '',
     this.platform = 'auto',
     this.cookieNetease = '',
     this.cookieTencent = '',
@@ -37,14 +36,14 @@ class SourceSettings {
     this.jsOnlyNoFallback = false,
     this.useUnifiedApi = true, // 新用户默认使用统一API，更稳定可靠
     this.unifiedApiBase = 'https://music.txqq.pro', // 统一API默认地址
-    this.useYouTubeProxy = false, // 默认关闭YouTube代理（需要翻墙）
-    this.youTubeDownloadSource = 'oceansaver', // 默认使用OceanSaver下载源
-    this.youTubeAudioQuality = '320k', // 默认使用320k高音质
+    this.useYouTubeProxy = false, // 公开版本不包含YouTube代理功能
+    this.youTubeDownloadSource = '', // 移除YouTube相关配置
+    this.youTubeAudioQuality = '', // 移除YouTube相关配置
     this.enableTts = false, // 默认关闭TTS功能
     this.ttsTestText = '你好，这是TTS测试', // 默认TTS测试文字
-    this.useBuiltinScript = true, // 默认使用内置脚本（LX Custom Source）
+    this.useBuiltinScript = false, // 公开版本无内置脚本
     this.primarySource = 'unified', // 默认使用统一API
-    this.scriptPreset = 'xiaoqiu', // 默认选择 xiaoqiu.js
+    this.scriptPreset = 'custom', // 默认选择自定义
     this.localScriptPath = '', // 默认无本地脚本路径
     this.jsSearchStrategy = 'qqFirst',
   });

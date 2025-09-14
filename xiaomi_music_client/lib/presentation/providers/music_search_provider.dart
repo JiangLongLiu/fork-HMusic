@@ -532,7 +532,7 @@ final unifiedApiServiceProvider = Provider<UnifiedApiService>((ref) {
   return UnifiedApiService(baseUrl: settings.unifiedApiBase);
 });
 
-// 移除YouTube代理Provider，仅保留统一API
+// 公开版本仅使用统一API，不包含YouTube代理功能
 
 final musicSearchProvider =
     StateNotifierProvider<MusicSearchNotifier, MusicSearchState>((ref) {

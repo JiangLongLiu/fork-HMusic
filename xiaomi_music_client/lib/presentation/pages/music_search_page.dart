@@ -686,7 +686,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
           throw Exception('统一API解析失败: $e');
         }
       } else {
-        // 🎯 其他源（YouTube等）：使用JS源解析
+        // 🎯 其他源：使用JS源解析
         print('[XMC] 🎵 [Play] 其他源：使用JS源解析播放链接...');
 
         try {
