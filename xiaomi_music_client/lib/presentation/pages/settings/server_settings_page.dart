@@ -39,7 +39,10 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
     await prefs.setString(AppConstants.prefsPassword, _passCtrl.text);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('服务器账号设置已保存'), backgroundColor: Colors.green),
+      const SnackBar(
+        content: Text('服务器账号设置已保存'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
@@ -60,8 +63,9 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
         children: [
           TextField(
             controller: _serverCtrl,
-            decoration: const InputDecoration(labelText: '服务器地址 (含协议)')
-                .copyWith(helperText: '例如：http://192.168.31.2:8090'),
+            decoration: const InputDecoration(
+              labelText: '服务器地址 (含协议)',
+            ).copyWith(helperText: '例如：http://192.168.31.2:8090'),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -100,9 +104,9 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
                     debugPrint('Username : ${_userCtrl.text}');
                     debugPrint('Password : ${_passCtrl.text}');
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已输出到调试日志')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('已输出到调试日志')));
                   },
                   icon: const Icon(Icons.bug_report),
                   label: const Text('输出到日志'),
@@ -114,7 +118,9 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
           OutlinedButton.icon(
             onPressed: () async {
               // 直接尝试用当前值登录（验证有效性）
-              await ref.read(authProvider.notifier).login(
+              await ref
+                  .read(authProvider.notifier)
+                  .login(
                     serverUrl: _serverCtrl.text,
                     username: _userCtrl.text,
                     password: _passCtrl.text,
@@ -133,5 +139,3 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
     );
   }
 }
-
-
