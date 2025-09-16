@@ -147,6 +147,7 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
 
       print('[XMC] 🔧 [SourceSettings] 加载设置:');
       print('  - enabled: $enabled');
+      print('  - scriptUrl: $scriptUrl');
       print('  - useJsForSearch: $useJsSearch');
       print('  - jsOnlyNoFallback: $jsOnly');
       print('  - useUnifiedApi: $useUnifiedApi');
@@ -161,11 +162,20 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       print('  - localScriptPath: $localScriptPath');
       print('  - unifiedApiBase: $unifiedApiBase');
 
-      // 若用户未设置脚本 URL，则保留我们预设的镜像默认值
-      final finalUrl =
-          (scriptUrl == null || scriptUrl.isEmpty)
-              ? state.scriptUrl
-              : scriptUrl;
+      // 公开版本：清理所有可能的xiaoqiu.js遗留配置
+      String? finalUrl = scriptUrl;
+      if (finalUrl != null && finalUrl.contains('xiaoqiu.js')) {
+        print('[XMC] 🧹 [SourceSettings] 检测到遗留的xiaoqiu.js配置，自动清理');
+        finalUrl = '';
+        // 清理遗留配置
+        await prefs.setString(_kScriptUrl, '');
+        await prefs.setBool(_kUseBuiltinScript, false);
+        await prefs.setString(_kScriptPreset, 'custom');
+        await prefs.setString(_kPrimarySource, 'unified');
+      }
+      
+      // 确保公开版本的默认设置
+      finalUrl = finalUrl ?? state.scriptUrl;
 
       state = state.copyWith(
         enabled: enabled ?? state.enabled,
