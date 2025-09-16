@@ -149,7 +149,7 @@ class MusicSearchNotifier extends StateNotifier<MusicSearchState> {
         final scripts = ref.read(jsScriptManagerProvider);
         final scriptManager = ref.read(jsScriptManagerProvider.notifier);
         final selectedScript = scriptManager.selectedScript;
-        
+
         if (scripts.isEmpty) {
           // 用户选择了JS音源但没有导入任何脚本
           throw Exception('未导入JS脚本\n请先在设置中导入JS脚本才能使用JS音源搜索');

@@ -157,10 +157,11 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       print('  - enableTts: $enableTts');
       print('  - ttsTestText: $ttsTestText');
       print('  - useBuiltinScript: $useBuiltinScript');
-      print('  - primarySource: $primarySource');
+      print('  - primarySource: $primarySource (从SharedPreferences读取)');
       print('  - scriptPreset: $scriptPreset');
       print('  - localScriptPath: $localScriptPath');
       print('  - unifiedApiBase: $unifiedApiBase');
+      print('  - state.primarySource: ${state.primarySource} (当前状态默认值)');
 
       // 公开版本：清理所有可能的xiaoqiu.js遗留配置
       String? finalUrl = scriptUrl;
@@ -184,6 +185,14 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       // 确保公开版本的默认设置
       finalUrl = finalUrl ?? state.scriptUrl;
 
+      // 调试：最终的primarySource值
+      final finalPrimarySource = needsCleanup ? 'unified' : (primarySource ?? state.primarySource);
+      print('[XMC] 🔧 [SourceSettings] 最终primarySource设置:');
+      print('  - needsCleanup: $needsCleanup');
+      print('  - primarySource from prefs: $primarySource');
+      print('  - state.primarySource: ${state.primarySource}');
+      print('  - finalPrimarySource: $finalPrimarySource');
+
       state = state.copyWith(
         enabled: enabled ?? state.enabled,
         scriptUrl: finalUrl,
@@ -202,8 +211,7 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
         ttsTestText: ttsTestText ?? state.ttsTestText,
         useBuiltinScript: useBuiltinScript ?? state.useBuiltinScript,
         // 只有在清理遗留配置时才强制设为unified，否则保持用户设置
-        primarySource:
-            needsCleanup ? 'unified' : (primarySource ?? state.primarySource),
+        primarySource: finalPrimarySource,
         scriptPreset: scriptPreset ?? state.scriptPreset,
         localScriptPath: localScriptPath ?? state.localScriptPath,
         jsSearchStrategy: jsSearchStrategy ?? state.jsSearchStrategy,

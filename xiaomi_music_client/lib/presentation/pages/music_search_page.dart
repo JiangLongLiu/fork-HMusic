@@ -492,7 +492,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         final scripts = ref.read(jsScriptManagerProvider);
         final scriptManager = ref.read(jsScriptManagerProvider.notifier);
         final selectedScript = scriptManager.selectedScript;
-        
+
         if (scripts.isEmpty) {
           // 用户选择了JS音源但没有导入任何脚本
           if (mounted) {
