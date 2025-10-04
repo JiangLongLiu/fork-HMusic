@@ -256,14 +256,15 @@ class _MainPageState extends ConsumerState<MainPage> {
   Widget _buildModernBottomNav() {
     // 获取底部安全区域高度（包括小白条）
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final hasBottomInset = bottomPadding > 0;
+    final gestureInset = MediaQuery.of(context).systemGestureInsets.bottom;
+    final hasGesture = gestureInset > 0 || bottomPadding > 0;
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Container(
       margin: EdgeInsets.only(
         left: 20,
         right: 20,
-        bottom: hasBottomInset ? bottomPadding + 8 : 20,
+        bottom: hasGesture ? (bottomPadding + 8 + 10) : 20,
         top: 10,
       ),
       decoration: BoxDecoration(
