@@ -5,6 +5,9 @@ import '../../data/models/device.dart';
 import 'auth_provider.dart';
 import 'dio_provider.dart';
 
+// 用于区分"未传入参数"和"传入 null"
+const _undefined = Object();
+
 class DeviceState {
   final List<Device> devices;
   final String? selectedDeviceId;
@@ -20,13 +23,16 @@ class DeviceState {
 
   DeviceState copyWith({
     List<Device>? devices,
-    String? selectedDeviceId,
+    Object? selectedDeviceId = _undefined,
     bool? isLoading,
     String? error,
   }) {
     return DeviceState(
       devices: devices ?? this.devices,
-      selectedDeviceId: selectedDeviceId ?? this.selectedDeviceId,
+      selectedDeviceId:
+          selectedDeviceId == _undefined
+              ? this.selectedDeviceId
+              : selectedDeviceId as String?,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -92,15 +98,21 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
 
       state = state.copyWith(devices: devices, isLoading: false, error: null);
 
-      if (devices.isNotEmpty && state.selectedDeviceId == null) {
+      // 🎯 当设备列表为空时，清除选中的设备ID
+      if (devices.isEmpty) {
+        state = state.copyWith(selectedDeviceId: null);
+      } else if (devices.isNotEmpty && state.selectedDeviceId == null) {
+        // 有设备但没有选中任何设备时，自动选中第一个在线设备
         final onlineDevice = devices.firstWhere(
           (d) => d.isOnline == true,
           orElse: () => devices.first,
         );
         state = state.copyWith(selectedDeviceId: onlineDevice.id);
       } else if (devices.isNotEmpty && state.selectedDeviceId != null) {
+        // 有设备且已选中设备时，检查该设备是否还在列表中
         final exists = devices.any((d) => d.id == state.selectedDeviceId);
         if (!exists) {
+          // 之前选中的设备不在列表中，重新选择一个在线设备
           final onlineDevice = devices.firstWhere(
             (d) => d.isOnline == true,
             orElse: () => devices.first,
