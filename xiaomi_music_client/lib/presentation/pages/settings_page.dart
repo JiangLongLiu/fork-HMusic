@@ -449,6 +449,8 @@ class SettingsPage extends ConsumerWidget {
         child: DropdownButton<String>(
           value: settings.defaultDownloadQuality,
           underline: const SizedBox.shrink(),
+          isDense: true,
+          icon: const Icon(Icons.arrow_drop_down),
           items: const [
             DropdownMenuItem(value: 'lossless', child: Text('无损音质')),
             DropdownMenuItem(value: 'high', child: Text('高品质 (320k)')),
