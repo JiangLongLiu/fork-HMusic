@@ -505,7 +505,7 @@ class SettingsPage extends ConsumerWidget {
             },
             borderRadius: BorderRadius.circular(20),
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.only(left: 8, top: 8, bottom: 8),
               child: Icon(
                 Icons.copy_rounded,
                 color: onSurface.withOpacity(0.4),
