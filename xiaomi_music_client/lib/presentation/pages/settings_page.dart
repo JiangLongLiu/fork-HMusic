@@ -443,10 +443,6 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
       title: const Text('默认下载音质'),
-      subtitle: Text(
-        _getQualityDescription(settings.defaultDownloadQuality),
-        style: TextStyle(fontSize: 12),
-      ),
       trailing: DropdownButton<String>(
         value: settings.defaultDownloadQuality,
         underline: const SizedBox.shrink(),
@@ -511,20 +507,6 @@ class SettingsPage extends ConsumerWidget {
         );
       },
     );
-  }
-
-  /// 获取音质描述
-  String _getQualityDescription(String quality) {
-    switch (quality) {
-      case 'lossless':
-        return 'hires → flac → 320k → 128k';
-      case 'high':
-        return '320k → 128k';
-      case 'standard':
-        return '128k';
-      default:
-        return '未知';
-    }
   }
 
   /// 获取下载路径
