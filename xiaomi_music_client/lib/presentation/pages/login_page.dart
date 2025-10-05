@@ -227,7 +227,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           _buildModernTextField(
                             controller: _usernameController,
                             labelText: '用户名',
-                            hintText: '请输入用户名',
+                            hintText: 'xiaomusic 后台的账号',
                             prefixIcon: Icons.person_rounded,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -243,7 +243,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           _buildModernTextField(
                             controller: _passwordController,
                             labelText: '密码',
-                            hintText: '请输入密码',
+                            hintText: 'xiaomusic 后台的密码',
                             prefixIcon: Icons.lock_rounded,
                             obscureText: _obscurePassword,
                             suffixIcon: IconButton(
