@@ -430,9 +430,23 @@ class SettingsPage extends ConsumerWidget {
     Color onSurface,
   ) {
     return ListTile(
-      leading: Icon(Icons.graphic_eq_rounded, color: onSurface.withOpacity(0.7)),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: onSurface.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          Icons.graphic_eq_rounded,
+          color: onSurface.withOpacity(0.8),
+          size: 20,
+        ),
+      ),
       title: const Text('默认下载音质'),
-      subtitle: Text(_getQualityDescription(settings.defaultDownloadQuality)),
+      subtitle: Text(
+        _getQualityDescription(settings.defaultDownloadQuality),
+        style: TextStyle(fontSize: 12),
+      ),
       trailing: DropdownButton<String>(
         value: settings.defaultDownloadQuality,
         underline: const SizedBox.shrink(),
@@ -459,7 +473,18 @@ class SettingsPage extends ConsumerWidget {
       builder: (context, snapshot) {
         final path = snapshot.data ?? '加载中...';
         return ListTile(
-          leading: Icon(Icons.folder_open_rounded, color: onSurface.withOpacity(0.7)),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: onSurface.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.folder_open_rounded,
+              color: onSurface.withOpacity(0.8),
+              size: 20,
+            ),
+          ),
           title: const Text('本地下载路径'),
           subtitle: Text(
             path,
