@@ -144,6 +144,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
   // 🖼️ 封面图自动搜索相关
   final _searchService = NativeMusicSearchService();
   final Map<String, String> _coverCache = {}; // 歌曲名 -> 封面URL 的缓存
+  String? _lastCoverSearchSong; // 上次搜索封面的歌曲名（用于防止重复搜索）
   static const String _coverCacheKey = 'album_cover_cache';
   static const int _maxCacheSize = 200;
   static const String _localPlaybackKey = 'local_playback_state';
@@ -291,6 +292,17 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
           );
           await _saveLocalPlayback(status);
           localStrategy.refreshNotification();
+
+          // 🖼️ 本地模式也需要自动搜索封面图（带防抖逻辑）
+          if (status.curMusic.isNotEmpty &&
+              (state.albumCoverUrl == null || state.albumCoverUrl!.isEmpty) &&
+              _lastCoverSearchSong != status.curMusic) {
+            debugPrint('🖼️ [PlaybackProvider-本地Stream] ✅ 触发封面自动搜索: ${status.curMusic}');
+            _lastCoverSearchSong = status.curMusic; // 记录本次搜索，防止重复
+            _autoFetchAlbumCover(status.curMusic).catchError((e) {
+              debugPrint('🖼️ [AutoCover] 异步搜索封面失败: $e');
+            });
+          }
         });
 
         // 🔧 停止所有远程模式的定时器（本地模式不需要）
@@ -983,6 +995,9 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
       debugPrint('🎵 [PlaybackProvider] 开始播放音乐: $musicName, 设备ID: $deviceId');
+
+      // 🖼️ 切歌时重置防抖标记，允许新歌曲搜索封面
+      _lastCoverSearchSong = null;
 
       // 使用策略播放
       await _currentStrategy!.playMusic(musicName: musicName ?? '', url: url);
