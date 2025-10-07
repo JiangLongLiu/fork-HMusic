@@ -365,16 +365,24 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         dir = await getApplicationDocumentsDirectory();
       } else {
         // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE 权限写入公共目录
-        bool hasPermission = await Permission.storage.isGranted;
+        bool hasPermission = false;
 
-        // Android 11+ (API 30+) 检查 MANAGE_EXTERNAL_STORAGE
-        if (!hasPermission && await Permission.manageExternalStorage.isDenied) {
-          hasPermission = await Permission.manageExternalStorage.request().isGranted;
-        }
-
-        // 回退到普通存储权限
-        if (!hasPermission) {
-          hasPermission = await Permission.storage.request().isGranted;
+        // 优先检查 MANAGE_EXTERNAL_STORAGE 权限（Android 11+）
+        if (await Permission.manageExternalStorage.isGranted) {
+          hasPermission = true;
+        } else if (await Permission.storage.isGranted) {
+          // 回退到普通存储权限（Android 10-）
+          hasPermission = true;
+        } else {
+          // 请求权限
+          final manageStatus = await Permission.manageExternalStorage.request();
+          if (manageStatus.isGranted) {
+            hasPermission = true;
+          } else {
+            // 回退请求普通存储权限
+            final storageStatus = await Permission.storage.request();
+            hasPermission = storageStatus.isGranted;
+          }
         }
 
         if (!hasPermission) {
