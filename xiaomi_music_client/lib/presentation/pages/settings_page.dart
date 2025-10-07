@@ -407,9 +407,10 @@ class SettingsPage extends ConsumerWidget {
                 child: const Text('取消'),
               ),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(context).pop();
-                  ref.read(authProvider.notifier).logout();
+                  await ref.read(authProvider.notifier).logout();
+                  if (context.mounted) context.go('/');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
