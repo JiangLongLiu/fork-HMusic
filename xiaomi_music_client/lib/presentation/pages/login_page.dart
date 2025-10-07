@@ -23,6 +23,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void initState() {
     super.initState();
     _formKey = GlobalKey<FormState>();
+    void listener() { if (mounted) setState(() {}); }
+    _serverUrlController.addListener(listener);
+    _usernameController.addListener(listener);
+    _passwordController.addListener(listener);
   }
 
   @override
@@ -34,15 +38,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _handleLogin() {
-    if (_formKey.currentState!.validate()) {
-      ref
-          .read(authProvider.notifier)
-          .login(
-            serverUrl: _serverUrlController.text,
-            username: _usernameController.text,
-            password: _passwordController.text,
-          );
-    }
+    if (!_formKey.currentState!.validate()) return;
+    ref.read(authProvider.notifier).login(
+      serverUrl: _serverUrlController.text.trim(),
+      username: _usernameController.text.trim(),
+      password: _passwordController.text,
+    );
   }
 
   @override
@@ -213,6 +214,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             labelText: '服务器地址',
                             hintText: AppConstants.defaultServerUrl,
                             prefixIcon: Icons.dns_rounded,
+                            textInputAction: TextInputAction.next,
+                            enableClear: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return '请输入服务器地址';
@@ -229,6 +232,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             labelText: '用户名',
                             hintText: 'xiaomusic 后台的账号',
                             prefixIcon: Icons.person_rounded,
+                            textInputAction: TextInputAction.next,
+                            enableClear: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return '请输入用户名';
@@ -246,12 +251,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             hintText: 'xiaomusic 后台的密码',
                             prefixIcon: Icons.lock_rounded,
                             obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _handleLogin(),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility_rounded
                                     : Icons.visibility_off_rounded,
-                                color: Colors.white.withOpacity(0.6),
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -337,6 +344,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     bool obscureText = false,
     Widget? suffixIcon,
     String? Function(String?)? validator,
+    TextInputAction? textInputAction,
+    void Function(String)? onSubmitted,
+    bool enableClear = false,
   }) {
     return TextFormField(
       controller: controller,
@@ -346,6 +356,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         fontSize: 16,
         fontWeight: FontWeight.w500,
       ),
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
@@ -354,7 +366,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
           size: 22,
         ),
-        suffixIcon: suffixIcon,
+        suffixIcon: suffixIcon ?? (
+          enableClear && controller.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.clear_rounded,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                  onPressed: () => controller.clear(),
+                )
+              : null
+        ),
         labelStyle: TextStyle(
           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
           fontSize: 14,
