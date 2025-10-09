@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'HMusic';
-  static const String version = '1.0.0';
+  static const String version = '2.0.0';
 
   // 网络配置
   static const int connectTimeout = 20;

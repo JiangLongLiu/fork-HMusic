@@ -12,6 +12,7 @@ import 'presentation/pages/settings/tts_settings_page.dart';
 import 'presentation/pages/settings/sponsor_page.dart';
 import 'presentation/pages/now_playing_page.dart';
 import 'presentation/pages/js_proxy_test_page.dart';
+import 'presentation/pages/update_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 直接从根路由开始，不使用额外的 Splash 页面
@@ -69,6 +70,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/js-proxy-test',
         name: 'js_proxy_test',
         builder: (context, state) => const JSProxyTestPage(),
+      ),
+      GoRoute(
+        path: '/update',
+        name: 'update',
+        builder: (context, state) {
+          final title = state.uri.queryParameters['title'] ?? '发现新版本';
+          final message = state.uri.queryParameters['message'] ?? '';
+          final url = state.uri.queryParameters['url'] ?? '';
+          final force = (state.uri.queryParameters['force'] ?? 'false') == 'true';
+          final targetVersion = state.uri.queryParameters['targetVersion'] ?? '';
+          return UpdatePage(
+            title: title,
+            message: message,
+            downloadUrl: url,
+            force: force,
+            targetVersion: targetVersion,
+          );
+        },
       ),
     ],
     debugLogDiagnostics: false,

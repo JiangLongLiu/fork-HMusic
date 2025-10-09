@@ -6,6 +6,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../data/services/audio_handler_service.dart';
 import '../../data/services/local_playback_strategy.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 初始化状态
 class InitializationState {
@@ -34,6 +35,7 @@ class InitializationState {
       error: error ?? this.error,
     );
   }
+
 }
 
 /// 初始化 Provider
@@ -50,12 +52,13 @@ class InitializationNotifier extends StateNotifier<InitializationState> {
   Future<void> initialize() async {
     try {
       // 步骤 1: 检查基础环境
-      state = state.copyWith(progress: 0.2, message: '检查环境...');
-      await Future.delayed(const Duration(milliseconds: 300));
+      state = state.copyWith(progress: 0.15, message: '检查环境...');
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // 步骤 2: 加载本地配置
-      state = state.copyWith(progress: 0.4, message: '加载配置...');
-      await Future.delayed(const Duration(milliseconds: 300));
+      state = state.copyWith(progress: 0.3, message: '加载配置...');
+      await _writeLeanCloudConfig();
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // 步骤 3: 初始化音频服务（真实操作）
       state = state.copyWith(progress: 0.5, message: '初始化音频服务...');
@@ -67,11 +70,11 @@ class InitializationNotifier extends StateNotifier<InitializationState> {
 
       // 步骤 5: 连接服务
       state = state.copyWith(progress: 0.85, message: '连接服务...');
-      await Future.delayed(const Duration(milliseconds: 400));
+      await Future.delayed(const Duration(milliseconds: 300));
 
       // 步骤 6: 准备就绪
       state = state.copyWith(progress: 1.0, message: '准备就绪...', isCompleted: true);
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // 通知原生层隐藏启动屏
       await _hideSplashScreen();
@@ -86,6 +89,17 @@ class InitializationNotifier extends StateNotifier<InitializationState> {
 
       // 即使失败也要隐藏启动屏
       await _hideSplashScreen();
+    }
+  }
+
+  Future<void> _writeLeanCloudConfig() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lc_base_url', 'https://nu0cttse.lc-cn-n1-shared.com');
+      await prefs.setString('lc_app_id', 'nu0CtTsesxoThR70g4Vn9Ypk-gzGzoHsz');
+      await prefs.setString('lc_app_key', 'WNNq0Z9pluoS8CRnrqu822xl');
+    } catch (e) {
+      debugPrint('⚠️ [Initialization] 写入 LeanCloud 配置失败: $e');
     }
   }
 

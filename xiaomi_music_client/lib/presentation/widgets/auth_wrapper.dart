@@ -8,6 +8,11 @@ import '../providers/js_proxy_provider.dart';
 import '../providers/source_settings_provider.dart';
 import '../providers/js_script_manager_provider.dart';
 import '../providers/initialization_provider.dart';
+import '../pages/update_page.dart';
+import '../providers/update_provider.dart';
+import 'package:go_router/go_router.dart';
+import '../providers/update_provider.dart';
+import 'package:go_router/go_router.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
@@ -36,8 +41,20 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   /// 初始化音频服务
   Future<void> _initializeAudioService() async {
     try {
+      // 先检查更新
+      final upd = ref.read(updateProvider.notifier);
+      await upd.check();
+
+      // 如果需要更新，则不执行后续初始化
+      final s = ref.read(updateProvider);
+      if (s.needsUpdate) {
+        return;
+      }
+
+      // 执行初始化
       final initNotifier = ref.read(initializationProvider.notifier);
       await initNotifier.initialize();
+
       // 初始化完成后,隐藏原生启动屏将在 initialize() 内部自动调用
     } catch (e) {
       print('[AuthWrapper] ❌ 音频服务初始化失败: $e');
@@ -120,6 +137,16 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final updState = ref.watch(updateProvider);
+    if (updState.needsUpdate) {
+      return UpdatePage(
+        title: updState.title,
+        message: updState.message,
+        downloadUrl: updState.downloadUrl,
+        force: updState.force,
+        targetVersion: updState.targetVersion,
+      );
+    }
 
     // 监听登录状态变化，成功登录后重置预加载标记
     ref.listen<AuthState>(authProvider, (previous, next) {
