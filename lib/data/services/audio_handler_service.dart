@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 
 /// 音频后台服务处理器
 /// 负责管理系统媒体通知和后台播放
@@ -12,8 +13,38 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
 
   MediaItem? _currentMediaItem;
 
+  // 🔧 添加回调函数,用于通知栏控制
+  Function()? onNext;
+  Function()? onPrevious;
+  Function(Duration)? onSeek;
+  Function()? onPlay;   // 🔧 添加播放回调
+  Function()? onPause;  // 🔧 添加暂停回调
+
+  // 🔧 控制是否监听本地播放器(远程播放时需要禁用)
+  bool _listenToLocalPlayer = true;
+  StreamSubscription? _playerStateSubscription;
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _bufferedPositionSubscription;
+  StreamSubscription? _speedSubscription;
+  StreamSubscription? _durationSubscription;
+  StreamSubscription? _processingStateSubscription;
+
   AudioHandlerService({required AudioPlayer player}) : _player = player {
     _init();
+  }
+
+  /// 🔧 设置是否监听本地播放器
+  void setListenToLocalPlayer(bool listen) {
+    if (_listenToLocalPlayer == listen) return;
+
+    _listenToLocalPlayer = listen;
+    debugPrint('🔧 [AudioHandler] ${listen ? "启用" : "禁用"}本地播放器监听');
+
+    if (listen) {
+      _startListeningToPlayer();
+    } else {
+      _stopListeningToPlayer();
+    }
   }
 
   void _init() {
@@ -28,8 +59,18 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
       ),
     );
 
+    // 启动本地播放器监听
+    _startListeningToPlayer();
+  }
+
+  /// 🔧 启动监听本地播放器
+  void _startListeningToPlayer() {
+    _stopListeningToPlayer(); // 先停止旧的监听
+
     // 监听播放状态变化
-    _player.playerStateStream.listen((playerState) {
+    _playerStateSubscription = _player.playerStateStream.listen((playerState) {
+      if (!_listenToLocalPlayer) return; // 远程模式跳过
+
       debugPrint('🧩 [AudioHandler] playerState: playing=${playerState.playing}, state=${playerState.processingState}');
       final isPlaying = playerState.playing;
       final processingState = playerState.processingState;
@@ -61,7 +102,9 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
     });
 
     // 监听播放进度
-    _player.positionStream.listen((position) {
+    _positionSubscription = _player.positionStream.listen((position) {
+      if (!_listenToLocalPlayer) return; // 远程模式跳过
+
       debugPrint('🧩 [AudioHandler] position: ${position.inMilliseconds}ms');
       playbackState.add(playbackState.value.copyWith(
         updatePosition: position,
@@ -69,17 +112,24 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
     });
 
     // 监听缓冲进度和倍速变化以同步到系统
-    _player.bufferedPositionStream.listen((bp) {
+    _bufferedPositionSubscription = _player.bufferedPositionStream.listen((bp) {
+      if (!_listenToLocalPlayer) return; // 远程模式跳过
+
       debugPrint('🧩 [AudioHandler] buffered: ${bp.inMilliseconds}ms');
       playbackState.add(playbackState.value.copyWith(bufferedPosition: bp));
     });
-    _player.speedStream.listen((sp) {
+
+    _speedSubscription = _player.speedStream.listen((sp) {
+      if (!_listenToLocalPlayer) return; // 远程模式跳过
+
       debugPrint('🧩 [AudioHandler] speed: $sp');
       playbackState.add(playbackState.value.copyWith(speed: sp));
     });
 
     // 监听时长变化，及时更新媒体项以便控制中心显示进度条
-    _player.durationStream.listen((d) {
+    _durationSubscription = _player.durationStream.listen((d) {
+      if (!_listenToLocalPlayer) return; // 远程模式跳过
+
       if (_currentMediaItem != null && d != null) {
         _currentMediaItem = _currentMediaItem!.copyWith(duration: d);
         mediaItem.add(_currentMediaItem);
@@ -87,12 +137,31 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
     });
 
     // 播放完成自动下一首
-    _player.processingStateStream.listen((state) {
+    _processingStateSubscription = _player.processingStateStream.listen((state) {
+      if (!_listenToLocalPlayer) return; // 远程模式跳过
+
       debugPrint('🧩 [AudioHandler] processingState: $state');
       if (state == ProcessingState.completed) {
         skipToNext();
       }
     });
+  }
+
+  /// 🔧 停止监听本地播放器
+  void _stopListeningToPlayer() {
+    _playerStateSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _bufferedPositionSubscription?.cancel();
+    _speedSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _processingStateSubscription?.cancel();
+
+    _playerStateSubscription = null;
+    _positionSubscription = null;
+    _bufferedPositionSubscription = null;
+    _speedSubscription = null;
+    _durationSubscription = null;
+    _processingStateSubscription = null;
   }
 
   AudioProcessingState _mapProcessingState(ProcessingState state) {
@@ -133,6 +202,14 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
   @override
   Future<void> play() async {
     debugPrint('🎵 [AudioHandler] 播放');
+
+    // 🔧 如果有外部回调(远程播放),调用回调而不是本地播放器
+    if (onPlay != null) {
+      onPlay!();
+      return;
+    }
+
+    // 否则使用本地播放器
     await _player.play();
 
     // 🔧 强制更新播放状态,确保通知栏显示正确
@@ -150,6 +227,14 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
   @override
   Future<void> pause() async {
     debugPrint('🎵 [AudioHandler] 暂停');
+
+    // 🔧 如果有外部回调(远程播放),调用回调而不是本地播放器
+    if (onPause != null) {
+      onPause!();
+      return;
+    }
+
+    // 否则使用本地播放器
     await _player.pause();
 
     // 🔧 强制更新暂停状态,确保通知栏显示正确
@@ -175,18 +260,33 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
   Future<void> seek(Duration position) async {
     debugPrint('🎵 [AudioHandler] 跳转到: ${position.inSeconds}s');
     await _player.seek(position);
+
+    // 🔧 调用回调通知上层
+    if (onSeek != null) {
+      onSeek!(position);
+    }
   }
 
   @override
   Future<void> skipToNext() async {
     debugPrint('🎵 [AudioHandler] 下一首');
-    customAction('skipToNext');
+    // 🔧 调用回调函数
+    if (onNext != null) {
+      onNext!();
+    } else {
+      debugPrint('⚠️ [AudioHandler] onNext 回调未设置');
+    }
   }
 
   @override
   Future<void> skipToPrevious() async {
     debugPrint('🎵 [AudioHandler] 上一首');
-    customAction('skipToPrevious');
+    // 🔧 调用回调函数
+    if (onPrevious != null) {
+      onPrevious!();
+    } else {
+      debugPrint('⚠️ [AudioHandler] onPrevious 回调未设置');
+    }
   }
 
   @override

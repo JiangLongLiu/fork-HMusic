@@ -89,6 +89,7 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
     if (_audioHandler != null && _sharedAudioPlayer != null) {
       // 如果已经绑定成功,立即初始化
       debugPrint('✅ [LocalPlayback] AudioPlayer 已就绪，立即初始化');
+      _clearRemoteCallbacks(); // 🔧 清除远程播放的回调
       _initPlayer();
       _loadCache();
     } else {
@@ -98,12 +99,24 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
         if (_audioHandler != null && _sharedAudioPlayer != null) {
           debugPrint('✅ [LocalPlayback] AudioHandler 就绪，初始化播放器');
           _player = _sharedAudioPlayer!;
+          _clearRemoteCallbacks(); // 🔧 清除远程播放的回调
           _initPlayer();
           _loadCache();
         } else {
           debugPrint('❌ [LocalPlayback] AudioHandler 未就绪，初始化失败');
         }
       });
+    }
+  }
+
+  /// 🔧 清除远程播放设置的回调,确保本地播放不会调用远程播放
+  void _clearRemoteCallbacks() {
+    if (_audioHandler != null) {
+      _audioHandler!.onPlay = null;
+      _audioHandler!.onPause = null;
+      // 🔧 重新启用本地播放器监听
+      _audioHandler!.setListenToLocalPlayer(true);
+      debugPrint('🔧 [LocalPlayback] 已清除远程播放回调,本地播放将使用 AudioPlayer');
     }
   }
 
@@ -130,6 +143,23 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
     if (_player == null) {
       debugPrint('❌ [LocalPlayback] _player 为 null，无法初始化');
       return;
+    }
+
+    // 🔧 连接 AudioHandler 的回调
+    if (_audioHandler != null) {
+      _audioHandler!.onNext = () {
+        debugPrint('🎵 [LocalPlayback] 通知栏触发下一首');
+        next();
+      };
+      _audioHandler!.onPrevious = () {
+        debugPrint('🎵 [LocalPlayback] 通知栏触发上一首');
+        previous();
+      };
+      _audioHandler!.onSeek = (position) {
+        debugPrint('🎵 [LocalPlayback] 通知栏跳转: ${position.inSeconds}s');
+        // seek 已经在 AudioHandler 中直接调用 player.seek 了,这里只需要更新状态
+        _emitCurrentStatus();
+      };
     }
 
     // 监听播放状态变化
@@ -178,6 +208,28 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
       await _loadCache();
     }
     if (_currentMusicUrl == null || _currentMusicUrl!.isEmpty) return;
+
+    final player = _ensurePlayer;
+    if (player == null) {
+      debugPrint('❌ [LocalPlayback] AudioPlayer 未初始化');
+      return;
+    }
+
+    // 🔧 修复: 如果播放器没有加载任何音频,先加载
+    if (player.processingState == ProcessingState.idle) {
+      debugPrint('🔧 [LocalPlayback] 播放器空闲,先加载音频: $_currentMusicUrl');
+      try {
+        await _loadAndMaybePlay(
+          url: _currentMusicUrl!,
+          name: _currentMusicName,
+          autoPlay: true,
+        );
+        return;
+      } catch (e) {
+        debugPrint('❌ [LocalPlayback] 加载音频失败: $e');
+        return;
+      }
+    }
 
     // 🔧 调用 AudioHandler 的 play() 方法,而不是直接调用 _player.play()
     if (_audioHandler != null) {
@@ -298,8 +350,8 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
     final player = _ensurePlayer;
     await _audioHandler!.setMediaItem(
       title: title,
-      artist: artist,
-      album: album,
+      artist: '本机播放', // 🔧 固定显示"本机播放"
+      album: album ?? '本地播放',
       artUri: _currentAlbumCover,
       duration: player?.duration,
     );
@@ -311,7 +363,6 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
     if (_currentMusicName != null) {
       _updateMediaNotification(
         title: _currentMusicName!,
-        artist: '未知艺术家',
         album: '本地播放',
       );
     }
@@ -322,7 +373,6 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
     if (_currentMusicName != null) {
       _updateMediaNotification(
         title: _currentMusicName!,
-        artist: '未知艺术家',
         album: '本地播放',
       );
     }
@@ -383,6 +433,13 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
         _currentMusicName = name;
       }
       await _saveCache();
+
+      // 🔧 修复: 等待 AudioHandler 就绪后再加载
+      await _waitAndAttachAudioHandler();
+
+      // 🔧 修复: 添加延迟,确保播放器完全初始化
+      await Future.delayed(const Duration(milliseconds: 300));
+
       await _loadAndMaybePlay(url: url, name: _currentMusicName, autoPlay: false, offset: offset);
     } catch (e) {
       debugPrint('❌ [LocalPlayback] 预加载失败: $e');
@@ -457,8 +514,53 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
         return;
       }
 
-      await player.stop();
-      await player.setUrl(url);
+      // 🔧 切歌时先更新媒体信息为加载状态,保持通知栏连续性
+      if ((name ?? '').isNotEmpty) {
+        await _updateMediaNotification(
+          title: name!,
+          album: '本地播放',
+        );
+        // 🔧 设置为加载状态,避免通知栏消失
+        _audioHandler?.playbackState.add(_audioHandler!.playbackState.value.copyWith(
+          processingState: AudioProcessingState.loading,
+        ));
+      }
+
+      // 🔧 使用 setAudioSource 代替 stop + setUrl,更平滑
+      try {
+        await player.setUrl(url);
+      } catch (e) {
+        debugPrint('⚠️ [LocalPlayback] setUrl 失败: $e');
+
+        // 🔧 检测是否是链接失效(HTTP 500等错误)
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('500') || errorMsg.contains('response code') ||
+            errorMsg.contains('source error')) {
+          debugPrint('🔄 [LocalPlayback] 检测到链接失效,自动跳到下一首');
+
+          // 清理状态
+          if (token == _loadToken) {
+            _loading = false;
+            _loadingMusicName = null;
+          }
+
+          // 延迟后自动播放下一首
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (_playlist.isNotEmpty) {
+              debugPrint('⏭️ [LocalPlayback] 开始播放下一首');
+              next();
+            }
+          });
+
+          return; // 不继续执行后续逻辑
+        }
+
+        // 其他错误,尝试重试
+        await player.stop();
+        await Future.delayed(const Duration(milliseconds: 50));
+        await player.setUrl(url);
+      }
+
       if (token != _loadToken) {
         debugPrint('⏭️ [LocalPlayback] 加载被新请求取消 (token: $token != $_loadToken)');
         return;
@@ -466,13 +568,15 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
       if (offset > 0) {
         await player.seek(Duration(seconds: offset));
       }
-      if ((name ?? '').isNotEmpty) {
+
+      // 🔧 更新媒体信息的 duration
+      if ((name ?? '').isNotEmpty && player.duration != null) {
         await _updateMediaNotification(
           title: name!,
-          artist: artist,
           album: '本地播放',
         );
       }
+
       if (autoPlay) {
         // 🔧 调用 AudioHandler 的 play() 方法
         if (_audioHandler != null) {
@@ -482,6 +586,14 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
         }
       }
       _emitCurrentStatus();
+    } catch (e) {
+      debugPrint('❌ [LocalPlayback] 加载播放失败: $e');
+      // 🔧 发生错误时,确保状态正确
+      if (token == _loadToken) {
+        _loading = false;
+        _loadingMusicName = null;
+      }
+      rethrow;
     } finally {
       if (token == _loadToken) {
         _loading = false;

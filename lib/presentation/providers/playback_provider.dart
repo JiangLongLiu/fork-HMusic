@@ -295,12 +295,17 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
           await _saveLocalPlayback(status);
           localStrategy.refreshNotification();
 
-          // 🖼️ 本地模式也需要自动搜索封面图（带防抖逻辑）
-          if (status.curMusic.isNotEmpty &&
-              (state.albumCoverUrl == null || state.albumCoverUrl!.isEmpty) &&
-              _lastCoverSearchSong != status.curMusic) {
+          // 🖼️ 本地模式自动搜索封面图
+          // 🔧 修复: 当歌曲切换时,主动更新封面
+          if (status.curMusic.isNotEmpty && _lastCoverSearchSong != status.curMusic) {
+            debugPrint('🖼️ [PlaybackProvider-本地Stream] 歌曲切换,清除旧封面: $_lastCoverSearchSong -> ${status.curMusic}');
+
+            // 🔧 先清除旧封面,避免显示上一首歌的封面
+            state = state.copyWith(albumCoverUrl: null);
+
+            _lastCoverSearchSong = status.curMusic; // 记录本次搜索歌曲
+
             debugPrint('🖼️ [PlaybackProvider-本地Stream] ✅ 触发封面自动搜索: ${status.curMusic}');
-            _lastCoverSearchSong = status.curMusic; // 记录本次搜索，防止重复
             _autoFetchAlbumCover(status.curMusic).catchError((e) {
               debugPrint('🖼️ [AutoCover] 异步搜索封面失败: $e');
             });
@@ -376,6 +381,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
               debugPrint('✅ [PlaybackProvider] 封面已恢复');
             }
 
+            // 🔧 立即刷新通知栏,确保显示本地播放状态
             if (_currentStrategy is LocalPlaybackStrategy) {
               (_currentStrategy as LocalPlaybackStrategy).refreshNotification();
             }
@@ -383,6 +389,19 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
             debugPrint('⚠️ [PlaybackProvider] 无本地播放缓存可恢复');
             debugPrint('   - cachedUrl: ${cachedUrl ?? "null"}');
             debugPrint('   - cachedMusic: ${cachedMusic?.curMusic ?? "null"}');
+
+            // 🔧 即使没有缓存,也要清空通知栏避免显示远程播放信息
+            if (_currentStrategy is LocalPlaybackStrategy) {
+              final audioHandler = LocalPlaybackStrategy.sharedAudioHandler;
+              if (audioHandler != null) {
+                await audioHandler.setMediaItem(
+                  title: '本机播放',
+                  artist: '本机播放',
+                  album: '本地播放',
+                );
+                debugPrint('✅ [PlaybackProvider] 已清空通知栏,显示本地播放');
+              }
+            }
           }
         } catch (e) {
           debugPrint('❌ [PlaybackProvider] 加载本地播放缓存失败: $e');
@@ -408,10 +427,22 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
       } else {
         debugPrint('🎵 [PlaybackProvider] 切换到远程控制模式 (设备: ${device.name})');
         _deviceSwitchProtectionUntil = DateTime.now().add(const Duration(milliseconds: 1500));
-        _currentStrategy = RemotePlaybackStrategy(
+        final remoteStrategy = RemotePlaybackStrategy(
           apiService: apiService,
           deviceId: deviceId,
+          deviceName: device.name, // 🔧 传入设备名称
+          audioHandler: LocalPlaybackStrategy.sharedAudioHandler, // 🔧 传入 AudioHandler
         );
+
+        // 🔧 设置状态变化回调,远程操作后立即刷新 APP 状态
+        remoteStrategy.onStatusChanged = () {
+          debugPrint('🔔 [PlaybackProvider] 远程状态已变化,立即刷新 APP');
+          // 🔧 重置防抖时间,允许立即刷新
+          _lastRefreshTime = null;
+          refreshStatus(silent: true);
+        };
+
+        _currentStrategy = remoteStrategy;
 
         // 启动状态刷新定时器
         _startStatusRefreshTimer();
@@ -529,22 +560,11 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
         return;
       }
 
-      // 直接使用播放状态API获取完整信息
-      final currentPlayingResponse = await apiService.getCurrentPlaying(
-        did: selectedDid,
+      // 🔧 使用策略的 getCurrentStatus 方法,这样会自动更新通知栏
+      final currentMusic = await _currentStrategy?.getCurrentStatus();
+      print(
+        '🎵 解析后的播放状态: 音乐=${currentMusic?.curMusic}, 播放中=${currentMusic?.isPlaying}, 进度=${currentMusic?.offset}/${currentMusic?.duration}',
       );
-      print('🎵 播放状态API响应: $currentPlayingResponse');
-
-      PlayingMusic? currentMusic;
-
-      if (currentPlayingResponse['ret'] == 'OK') {
-        currentMusic = PlayingMusic.fromJson(currentPlayingResponse);
-        print(
-          '🎵 解析后的播放状态: 音乐=${currentMusic.curMusic}, 播放中=${currentMusic.isPlaying}, 进度=${currentMusic.offset}/${currentMusic.duration}',
-        );
-      } else {
-        print('🎵 API返回错误或无播放内容');
-      }
 
       final volumeResponse = await apiService.getVolume(did: selectedDid);
       print('🎵 音量响应: $volumeResponse');
@@ -1333,6 +1353,10 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
       if (_currentStrategy is LocalPlaybackStrategy) {
         (_currentStrategy as LocalPlaybackStrategy).setAlbumCover(coverUrl);
         (_currentStrategy as LocalPlaybackStrategy).refreshNotification();
+      }
+      // 🎵 如果是远程播放模式，也要更新通知栏封面
+      else if (_currentStrategy is RemotePlaybackStrategy) {
+        (_currentStrategy as RemotePlaybackStrategy).updateAlbumCover(coverUrl);
       }
     }
   }

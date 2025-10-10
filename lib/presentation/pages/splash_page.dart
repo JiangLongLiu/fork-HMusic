@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/initialization_provider.dart';
 
 /// Splash 启动页：展示 App Logo，执行初始化逻辑
@@ -82,8 +83,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
                   scale: _scaleAnimation,
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Image.asset(
-                      'xiaoai_music_box_icon.png',
+                    child: SvgPicture.asset(
+                      'assets/hmusic-logo.svg',
                       width: 240,
                       height: 240,
                       fit: BoxFit.contain,

@@ -182,7 +182,7 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
   }
 }
 
-class _ProgressBar extends ConsumerWidget {
+class _ProgressBar extends ConsumerStatefulWidget {
   final int currentTime;
   final int totalTime;
   final bool disabled;
@@ -193,31 +193,58 @@ class _ProgressBar extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ProgressBar> createState() => _ProgressBarState();
+}
+
+class _ProgressBarState extends ConsumerState<_ProgressBar> {
+  double? _draggingValue; // 🔧 拖动时的临时进度值
+
+  @override
+  Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final progress =
-        totalTime > 0 ? (currentTime / totalTime).clamp(0.0, 1.0) : 0.0;
+
+    // 🔧 使用拖动值或实际进度值
+    final displayTime = _draggingValue != null
+        ? (_draggingValue! * widget.totalTime).round()
+        : widget.currentTime;
+
+    final progress = widget.totalTime > 0
+        ? (displayTime / widget.totalTime).clamp(0.0, 1.0)
+        : 0.0;
+
     return Column(
       children: [
         Slider(
           value: progress,
-          onChanged: disabled ? null : (v) {},
-          onChangeEnd:
-              disabled
-                  ? null
-                  : (v) => ref
+          onChanged: widget.disabled
+              ? null
+              : (v) {
+                  // 🔧 拖动时更新临时值,实时显示进度
+                  setState(() {
+                    _draggingValue = v;
+                  });
+                },
+          onChangeEnd: widget.disabled
+              ? null
+              : (v) {
+                  // 🔧 拖动结束,清除临时值并执行 seek
+                  setState(() {
+                    _draggingValue = null;
+                  });
+                  ref
                       .read(playbackProvider.notifier)
-                      .seekTo((v * totalTime).round()),
+                      .seekTo((v * widget.totalTime).round());
+                },
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _fmt(currentTime),
+              _fmt(displayTime),
               style: TextStyle(color: onSurface.withOpacity(0.7)),
             ),
             Text(
-              _fmt(totalTime),
+              _fmt(widget.totalTime),
               style: TextStyle(color: onSurface.withOpacity(0.7)),
             ),
           ],

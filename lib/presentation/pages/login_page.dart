@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -101,8 +102,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   Column(
                     children: [
                       Container(
-                        width: 100,
-                        height: 100,
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withOpacity(isLight ? 1.0 : 0.1),
@@ -115,17 +116,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ],
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Image.asset(
-                            'xiaoai_music_box_icon.png',
+                          padding: const EdgeInsets.all(8),
+                          child: SvgPicture.asset(
+                            'assets/hmusic-logo.svg',
                             fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                Icons.music_note_rounded,
-                                size: 50,
-                                color: isLight ? const Color(0xFF21B0A5) : Colors.white,
-                              );
-                            },
                           ),
                         ),
                       ),
@@ -266,6 +260,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ? Icons.visibility_rounded
                                     : Icons.visibility_off_rounded,
                                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                size: 22,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -305,7 +300,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   Icon(
                                     Icons.error_outline_rounded,
                                     color: const Color(0xFFFF6B6B),
-                                    size: 20,
+                                    size: 22,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -368,10 +363,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
-        prefixIcon: Icon(
-          prefixIcon,
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-          size: 22,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Icon(
+            prefixIcon,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            size: 26,
+          ),
+        ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 48,
+          minHeight: 48,
         ),
         suffixIcon: suffixIcon ?? (
           enableClear && controller.text.isNotEmpty
@@ -379,6 +381,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   icon: Icon(
                     Icons.clear_rounded,
                     color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    size: 22,
                   ),
                   onPressed: () => controller.clear(),
                 )
