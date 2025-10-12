@@ -12,6 +12,8 @@ import '../../data/services/native_music_search_service.dart';
 import '../../data/services/playback_strategy.dart';
 import '../../data/services/local_playback_strategy.dart';
 import '../../data/services/remote_playback_strategy.dart';
+import '../../data/services/album_cover_service.dart';
+import '../../data/services/unified_api_service.dart';
 import 'dio_provider.dart';
 import 'device_provider.dart';
 import 'music_library_provider.dart';
@@ -145,6 +147,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
 
   // 🖼️ 封面图自动搜索相关
   final _searchService = NativeMusicSearchService();
+  AlbumCoverService? _albumCoverService; // 🆕 新的封面服务
   final Map<String, String> _coverCache = {}; // 歌曲名 -> 封面URL 的缓存
   String? _lastCoverSearchSong; // 上次搜索封面的歌曲名（用于防止重复搜索）
   static const String _coverCacheKey = 'album_cover_cache';
@@ -179,6 +182,7 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     _statusRefreshTimer?.cancel();
     _localProgressTimer?.cancel();
     _currentStrategy?.dispose();
+    _albumCoverService?.dispose();
     super.dispose();
   }
 
@@ -1403,139 +1407,64 @@ class PlaybackNotifier extends StateNotifier<PlaybackState> {
     }
   }
 
-  /// 🖼️ 自动搜索并获取歌曲封面图（用于服务端本地歌曲）
+  /// 🖼️ 自动搜索并获取歌曲封面图（新版：支持上传到服务器）
   Future<void> _autoFetchAlbumCover(String songName) async {
-    // 🎯 先检查缓存
+    // 🎯 先检查内存缓存
     if (_coverCache.containsKey(songName)) {
       final cachedUrl = _coverCache[songName]!;
-      debugPrint('🖼️ [AutoCover] 从缓存加载封面: $songName');
+      debugPrint('🖼️ [AutoCover] 从内存缓存加载封面: $songName');
       updateAlbumCover(cachedUrl);
       return;
     }
 
     try {
-      debugPrint('🖼️ [AutoCover] ========== 开始搜索封面 ==========');
+      debugPrint('🖼️ [AutoCover] ========== 开始获取封面 ==========');
       debugPrint('🖼️ [AutoCover] 歌曲名称: "$songName"');
 
-      List<OnlineMusicResult> results = [];
-      int attemptCount = 0;
+      // 🔧 初始化 AlbumCoverService（如果未初始化）
+      if (_albumCoverService == null) {
+        final apiService = ref.read(apiServiceProvider);
+        if (apiService == null) {
+          debugPrint('❌ [AutoCover] API服务未初始化，无法获取封面');
+          return;
+        }
 
-      // 1️⃣ 优先搜索QQ音乐（封面质量较好）
-      attemptCount++;
-      debugPrint('🖼️ [AutoCover] [$attemptCount] 尝试 QQ音乐搜索...');
-      try {
-        final startTime = DateTime.now();
-        results = await _searchService
-            .searchQQ(query: songName, page: 1)
-            .timeout(const Duration(seconds: 10));
-        final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-        debugPrint(
-          '🖼️ [AutoCover] [$attemptCount] QQ音乐搜索完成: ${results.length} 条 (耗时: ${elapsed}ms)',
+        debugPrint('🔧 [AutoCover] 初始化 AlbumCoverService');
+        _albumCoverService = AlbumCoverService(
+          unifiedApi: UnifiedApiService(),
+          musicApi: apiService,
         );
-
-        if (results.isEmpty) {
-          debugPrint('🖼️ [AutoCover] [$attemptCount] QQ音乐返回空结果');
-        }
-      } catch (e) {
-        debugPrint('🖼️ [AutoCover] [$attemptCount] ❌ QQ音乐搜索失败');
-        debugPrint('🖼️ [AutoCover] [$attemptCount] 错误类型: ${e.runtimeType}');
-        debugPrint('🖼️ [AutoCover] [$attemptCount] 错误信息: $e');
-        if (e.toString().contains('HandshakeException') ||
-            e.toString().contains('SocketException') ||
-            e.toString().contains('TimeoutException')) {
-          debugPrint('🖼️ [AutoCover] [$attemptCount] ⚠️ 网络连接问题');
-        }
       }
 
-      // 2️⃣ 如果QQ音乐没有结果，尝试酷我音乐
-      if (results.isEmpty) {
-        attemptCount++;
-        debugPrint('🖼️ [AutoCover] [$attemptCount] 尝试 酷我音乐搜索...');
-        try {
-          final startTime = DateTime.now();
-          results = await _searchService
-              .searchKuwo(query: songName, page: 1)
-              .timeout(const Duration(seconds: 10));
-          final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-          debugPrint(
-            '🖼️ [AutoCover] [$attemptCount] 酷我音乐搜索完成: ${results.length} 条 (耗时: ${elapsed}ms)',
-          );
+      // 获取登录地址（用于URL替换）
+      final apiService = ref.read(apiServiceProvider);
+      if (apiService == null) return;
+      final loginBaseUrl = apiService.baseUrl;
 
-          if (results.isEmpty) {
-            debugPrint('🖼️ [AutoCover] [$attemptCount] 酷我音乐返回空结果');
-          }
-        } catch (e) {
-          debugPrint('🖼️ [AutoCover] [$attemptCount] ❌ 酷我音乐搜索失败');
-          debugPrint('🖼️ [AutoCover] [$attemptCount] 错误类型: ${e.runtimeType}');
-          debugPrint('🖼️ [AutoCover] [$attemptCount] 错误信息: $e');
-          if (e.toString().contains('HandshakeException') ||
-              e.toString().contains('SocketException') ||
-              e.toString().contains('TimeoutException')) {
-            debugPrint('🖼️ [AutoCover] [$attemptCount] ⚠️ 网络连接问题');
-          }
-        }
-      }
+      debugPrint('🖼️ [AutoCover] 登录地址: $loginBaseUrl');
 
-      // 3️⃣ 如果酷我也没结果，最后尝试网易云音乐
-      if (results.isEmpty) {
-        attemptCount++;
-        debugPrint('🖼️ [AutoCover] [$attemptCount] 尝试 网易云音乐搜索...');
-        try {
-          final startTime = DateTime.now();
-          results = await _searchService
-              .searchNetease(query: songName, page: 1)
-              .timeout(const Duration(seconds: 10));
-          final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-          debugPrint(
-            '🖼️ [AutoCover] [$attemptCount] 网易云音乐搜索完成: ${results.length} 条 (耗时: ${elapsed}ms)',
-          );
+      // 🚀 调用 AlbumCoverService 获取或刮削封面
+      final coverUrl = await _albumCoverService!.getOrFetchAlbumCover(
+        musicName: songName,
+        loginBaseUrl: loginBaseUrl,
+        autoScrape: true, // 允许自动刮削
+      );
 
-          if (results.isEmpty) {
-            debugPrint('🖼️ [AutoCover] [$attemptCount] 网易云音乐返回空结果');
-          }
-        } catch (e) {
-          debugPrint('🖼️ [AutoCover] [$attemptCount] ❌ 网易云音乐搜索失败');
-          debugPrint('🖼️ [AutoCover] [$attemptCount] 错误类型: ${e.runtimeType}');
-          debugPrint('🖼️ [AutoCover] [$attemptCount] 错误信息: $e');
-          if (e.toString().contains('HandshakeException') ||
-              e.toString().contains('SocketException') ||
-              e.toString().contains('TimeoutException')) {
-            debugPrint('🖼️ [AutoCover] [$attemptCount] ⚠️ 网络连接问题');
-          }
-        }
-      }
+      if (coverUrl != null && coverUrl.isNotEmpty) {
+        debugPrint('✅ [AutoCover] 获取封面成功: $coverUrl');
 
-      // 从搜索结果中提取封面图
-      if (results.isNotEmpty) {
-        final firstResult = results.first;
-        debugPrint('🖼️ [AutoCover] ✅ 找到搜索结果');
-        debugPrint('🖼️ [AutoCover] 歌曲: ${firstResult.title}');
-        debugPrint('🖼️ [AutoCover] 歌手: ${firstResult.author}');
-        debugPrint('🖼️ [AutoCover] 封面URL: ${firstResult.picture}');
-        debugPrint('🖼️ [AutoCover] 平台: ${firstResult.platform}');
+        // 🎯 保存到内存缓存
+        _coverCache[songName] = coverUrl;
+        _saveCoverCache(); // 异步保存到本地，不阻塞主流程
 
-        if (firstResult.picture != null && firstResult.picture!.isNotEmpty) {
-          debugPrint('✅ [AutoCover] 封面图有效，准备更新');
-
-          // 🎯 保存到缓存
-          _coverCache[songName] = firstResult.picture!;
-          _saveCoverCache(); // 异步保存，不阻塞主流程
-
-          // 更新封面图（在主线程中）
-          updateAlbumCover(firstResult.picture!);
-          debugPrint('✅ [AutoCover] 封面图已更新到UI');
-        } else {
-          debugPrint('⚠️ [AutoCover] 搜索结果中封面字段为空');
-        }
+        // 更新封面图
+        updateAlbumCover(coverUrl);
+        debugPrint('✅ [AutoCover] 封面图已更新到UI');
       } else {
-        debugPrint('❌ [AutoCover] ========== 所有音源都未找到搜索结果 ==========');
-        debugPrint('❌ [AutoCover] 可能原因:');
-        debugPrint('   1. 网络连接问题（SSL握手失败、超时等）');
-        debugPrint('   2. 音乐平台API限制或变更');
-        debugPrint('   3. 搜索关键词格式不匹配');
+        debugPrint('⚠️ [AutoCover] 未找到封面（服务器无封面且在线刮削失败）');
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ [AutoCover] ========== 搜索封面异常 ==========');
+      debugPrint('❌ [AutoCover] ========== 获取封面异常 ==========');
       debugPrint('❌ [AutoCover] 异常: $e');
       debugPrint(
         '❌ [AutoCover] 堆栈: ${stackTrace.toString().split('\n').take(5).join('\n')}',
