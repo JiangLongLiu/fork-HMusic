@@ -24,6 +24,7 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
   AnimationController? _buttonAnimationController;
   Color? _dominantColor; // 封面主色调
   String? _lastCoverUrl; // 上一次的封面 URL
+  String? _colorExtractedUrl; // 🔧 已提取颜色的封面 URL（防止重复提取）
 
   @override
   void initState() {
@@ -75,6 +76,7 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
     if (coverUrl != _lastCoverUrl) {
       _lastCoverUrl = coverUrl;
       _dominantColor = null; // 清除旧颜色,等待新图片加载后提取
+      _colorExtractedUrl = null; // 🔧 重置提取标记，允许新封面提取颜色
     }
 
     // 延迟动画控制以避免在build中修改状态
@@ -591,12 +593,16 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
                       height: artworkSize,
                       // 🎨 图片加载完成后,延迟提取颜色(确保图片已缓存)
                       imageBuilder: (context, imageProvider) {
-                        // 延迟提取颜色,避免与首次加载冲突
-                        Future.delayed(const Duration(milliseconds: 300), () {
-                          if (mounted && coverUrl == playbackState.albumCoverUrl) {
-                            _extractDominantColorFromProvider(imageProvider);
-                          }
-                        });
+                        // 🔧 只有当这个 URL 还没有提取过颜色时，才提取
+                        if (_colorExtractedUrl != coverUrl) {
+                          _colorExtractedUrl = coverUrl; // 立即标记，防止重复
+                          // 延迟提取颜色,避免与首次加载冲突
+                          Future.delayed(const Duration(milliseconds: 300), () {
+                            if (mounted && coverUrl == playbackState.albumCoverUrl) {
+                              _extractDominantColorFromProvider(imageProvider);
+                            }
+                          });
+                        }
                         return Image(image: imageProvider, fit: BoxFit.cover);
                       },
                       placeholder: (context, url) => _buildDefaultArtwork(artworkSize, onSurface),

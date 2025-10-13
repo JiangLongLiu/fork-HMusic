@@ -15,6 +15,7 @@ class NowPlayingPage extends ConsumerStatefulWidget {
 class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
   Color? _dominantColor;
   String? _lastCoverUrl;
+  String? _colorExtractedUrl; // 🔧 已提取颜色的封面 URL（防止重复提取）
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
       debugPrint('🎨 检测到封面 URL 变化: $_lastCoverUrl -> $coverUrl');
       _lastCoverUrl = coverUrl;
       _dominantColor = null; // 立即清除旧颜色,等待新图片加载后提取
+      _colorExtractedUrl = null; // 🔧 重置提取标记，允许新封面提取颜色
     }
 
     return Scaffold(
@@ -125,12 +127,16 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
                 fit: BoxFit.cover,
                 // 🎨 图片加载完成后,延迟提取颜色(确保图片已缓存)
                 imageBuilder: (context, imageProvider) {
-                  // 延迟提取颜色,避免与首次加载冲突
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (mounted && coverUrl == ref.read(playbackProvider).albumCoverUrl) {
-                      _extractDominantColorFromProvider(imageProvider);
-                    }
-                  });
+                  // 🔧 只有当这个 URL 还没有提取过颜色时，才提取
+                  if (_colorExtractedUrl != coverUrl) {
+                    _colorExtractedUrl = coverUrl; // 立即标记，防止重复
+                    // 延迟提取颜色,避免与首次加载冲突
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (mounted && coverUrl == ref.read(playbackProvider).albumCoverUrl) {
+                        _extractDominantColorFromProvider(imageProvider);
+                      }
+                    });
+                  }
                   return Image(image: imageProvider, fit: BoxFit.cover);
                 },
                 placeholder: (context, url) => Center(
