@@ -673,28 +673,39 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
 
           // 设备校验/选择
           final deviceState = ref.read(deviceProvider);
-          if (deviceState.devices.isEmpty) {
-            if (mounted) {
-              AppSnackBar.show(
-                context,
-                const SnackBar(
-                  content: Text('未找到可用设备，请先在控制页检查设备连接'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
+          final selectedDeviceId = deviceState.selectedDeviceId;
+
+          // 🔧 修复：如果已选择本地播放设备，跳过设备列表检查
+          final isLocalPlayback = (selectedDeviceId == 'local_device');
+
+          if (!isLocalPlayback) {
+            // 远程播放模式需要检查设备列表
+            if (deviceState.devices.isEmpty) {
+              if (mounted) {
+                AppSnackBar.show(
+                  context,
+                  const SnackBar(
+                    content: Text('未找到可用设备，请先在控制页检查设备连接'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+              return;
             }
-            return;
           }
-          if (deviceState.selectedDeviceId == null) {
+
+          if (selectedDeviceId == null) {
+            // 未选择设备，弹出选择对话框
             if (mounted) {
               final shouldSelectDevice = await _showDeviceSelectionDialog(
                 deviceState.devices,
               );
               if (!shouldSelectDevice) return;
             }
+            // 重新获取选择的设备ID
+            final newSelectedDeviceId = ref.read(deviceProvider).selectedDeviceId;
+            if (newSelectedDeviceId == null) return;
           }
-          final selectedDeviceId = deviceState.selectedDeviceId;
-          if (selectedDeviceId == null) return;
 
           final apiService = ref.read(apiServiceProvider);
           if (apiService == null) throw Exception('API服务未初始化，请先登录');
@@ -792,11 +803,18 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
           if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
             print('[XMC] 🎵 [Play] 使用解析直链播放');
 
+            // 🔄 重新获取最新的设备ID（确保不为null）
+            final finalDeviceId = ref.read(deviceProvider).selectedDeviceId;
+            if (finalDeviceId == null) {
+              print('[XMC] ❌ [Play] 设备ID为空，无法播放');
+              return;
+            }
+
             // 🎯 通过 PlaybackProvider 播放，自动适配本地/远程模式
             await ref
                 .read(playbackProvider.notifier)
                 .playMusic(
-                  deviceId: selectedDeviceId,
+                  deviceId: finalDeviceId,
                   musicName: '${item.title} - ${item.author}',
                   url: resolvedUrl,
                   albumCoverUrl: item.picture, // 🖼️ 传递搜索结果的封面图
@@ -1039,11 +1057,11 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         '[XMC] 🎵 [Play] 开始播放解析后的链接: ${playUrl.substring(0, playUrl.length > 100 ? 100 : playUrl.length)}...',
       );
 
-      // 🎯 通过 PlaybackProvider 播放，自动适配本地/远程模式
+      // 🎯 通过 PlaybackProvider 播放,自动适配本地/远程模式
       await ref
           .read(playbackProvider.notifier)
           .playMusic(
-            deviceId: selectedDeviceId,
+            deviceId: selectedDeviceId!, // 已在上面检查过非空
             musicName: '${item.title} - ${item.author}',
             url: playUrl,
             albumCoverUrl: item.picture, // 🖼️ 传递搜索结果的封面图

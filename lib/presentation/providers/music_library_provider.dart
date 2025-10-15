@@ -100,20 +100,45 @@ class MusicLibraryNotifier extends StateNotifier<MusicLibraryState> {
         debugPrint('MusicLibrary: 前5首歌曲: ${musicList.take(5).map((m) => m.name).toList()}');
       }
 
+      // 🔧 保留已获取的封面图信息
+      // 创建旧音乐名称到封面图的映射
+      final oldCoverMap = <String, String>{};
+      for (final oldMusic in state.musicList) {
+        if (oldMusic.picture != null && oldMusic.picture!.isNotEmpty) {
+          oldCoverMap[oldMusic.name] = oldMusic.picture!;
+        }
+      }
+
+      // 将旧的封面图信息应用到新的音乐列表
+      final musicListWithCovers = musicList.map((music) {
+        final existingCover = oldCoverMap[music.name];
+        if (existingCover != null) {
+          return Music(
+            name: music.name,
+            title: music.title,
+            artist: music.artist,
+            album: music.album,
+            duration: music.duration,
+            picture: existingCover, // 🖼️ 恢复旧的封面图
+          );
+        }
+        return music;
+      }).toList();
+
       state = state.copyWith(
-        musicList: musicList,
-        filteredMusicList: musicList,
+        musicList: musicListWithCovers,
+        filteredMusicList: musicListWithCovers,
         isLoading: false,
         error: null,
       );
 
-      debugPrint('MusicLibrary: 数据加载完成，状态已更新');
+      debugPrint('MusicLibrary: 数据加载完成，状态已更新，已恢复 ${oldCoverMap.length} 个封面图');
 
-      // 🖼️ 异步获取所有歌曲的封面图（不阻塞UI）
+      // 🖼️ 异步获取所有歌曲的封面图(不阻塞UI)
       // 🔧 只在首次加载或有新歌曲时才获取封面
-      if (musicList.isNotEmpty) {
+      if (musicListWithCovers.isNotEmpty) {
         // 找出未获取封面的歌曲
-        final needsFetchList = musicList.where((music) {
+        final needsFetchList = musicListWithCovers.where((music) {
           return !_fetchedCovers.contains(music.name) &&
               (music.picture == null || music.picture!.isEmpty);
         }).toList();
