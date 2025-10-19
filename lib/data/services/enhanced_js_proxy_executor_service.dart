@@ -593,8 +593,7 @@ class EnhancedJSProxyExecutorService {
               delete globalThis._pendingRequests['$requestId'];
 
               const response = ${jsonEncode(responseData)};
-              console.log('[EnhancedJSProxy] 响应状态:', response.statusCode);
-              console.log('API Response: ', response);
+              console.log('[EnhancedJSProxy] 📊 HTTP层响应 {statusCode:', response.statusCode, ', body:', response.body, '}');
 
               // 🔧 关键修复：为不同脚本提供兼容的响应格式
               // 有些脚本期望直接收到 body，有些期望收到完整的 response 对象
@@ -607,7 +606,14 @@ class EnhancedJSProxyExecutorService {
                 ...(typeof response.body === 'object' ? response.body : {})
               };
 
-              console.log('[EnhancedJSProxy] 兼容响应对象:', compatResponse);
+              console.log('[EnhancedJSProxy] 📦 兼容格式传给脚本:', compatResponse);
+              console.log('[EnhancedJSProxy] 🔍 可用访问方式:');
+              console.log('  - compatResponse.statusCode =', compatResponse.statusCode, '(HTTP状态码)');
+              console.log('  - compatResponse.body =', compatResponse.body, '(原始body)');
+              console.log('  - compatResponse.data =', compatResponse.data, '(body别名)');
+              if (compatResponse.body && typeof compatResponse.body === 'object' && compatResponse.body.code !== undefined) {
+                console.log('  - compatResponse.code =', compatResponse.code, '(业务状态码,从body展开)');
+              }
 
               // 执行回调（优先使用兼容格式）
               callback(null, compatResponse);
