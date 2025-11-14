@@ -132,9 +132,9 @@ class InitializationNotifier extends StateNotifier<InitializationState> {
         config: const AudioServiceConfig(
           androidNotificationChannelId: 'com.xiaomi.music.channel.audio',
           androidNotificationChannelName: 'HMusic',
-          androidNotificationOngoing: true,
+          androidNotificationOngoing: false,
           androidShowNotificationBadge: true,
-          androidStopForegroundOnPause: true,
+          androidStopForegroundOnPause: false,
         ),
       );
 
