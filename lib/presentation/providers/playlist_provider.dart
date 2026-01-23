@@ -74,12 +74,20 @@ class PlaylistNotifier extends StateNotifier<PlaylistState> {
 
       // 🔧 添加调试日志
       debugPrint('📋 [PlaylistProvider] getPlaylistNames响应: $resp');
-      debugPrint('📋 [PlaylistProvider] getMusicList响应: ${fullMap.keys.toList()}');
+      debugPrint('📋 [PlaylistProvider] getMusicList返回 ${fullMap.keys.length} 个键:');
+      for (final key in fullMap.keys) {
+        final value = fullMap[key];
+        final count = value is List ? value.length : 0;
+        debugPrint('   - "$key": $count 首歌曲 (类型: ${value.runtimeType})');
+      }
 
       final playlists = PlaylistAdapter.mergeToPlaylists(resp, fullMap);
       final deletable = PlaylistAdapter.extractNames(resp).toSet();
 
-      debugPrint('📋 [PlaylistProvider] 合并后的播放列表: ${playlists.map((p) => p.name).toList()}');
+      debugPrint('📋 [PlaylistProvider] 合并后的播放列表:');
+      for (final p in playlists) {
+        debugPrint('   - "${p.name}": ${p.count ?? 0} 首歌曲');
+      }
       debugPrint('📋 [PlaylistProvider] 可删除播放列表: $deletable');
 
       state = state.copyWith(
@@ -89,6 +97,7 @@ class PlaylistNotifier extends StateNotifier<PlaylistState> {
         deletablePlaylists: deletable,
       );
     } catch (e) {
+      debugPrint('❌ [PlaylistProvider] _loadPlaylists失败: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -104,19 +113,34 @@ class PlaylistNotifier extends StateNotifier<PlaylistState> {
     try {
       state = state.copyWith(isLoading: true);
 
+      debugPrint('📋 [PlaylistProvider] loadPlaylistMusics 开始: $playlistName');
+
       // 优先从 /musiclist 的聚合结果中拿（包含很多内置类别）
       final full = await apiService.getMusicList();
+
+      debugPrint('📋 [PlaylistProvider] /musiclist 返回的所有键: ${full.keys.toList()}');
+
       List<String>? fromFull;
       final byKey = full[playlistName];
+
+      debugPrint('📋 [PlaylistProvider] 查找键 "$playlistName": ${byKey != null ? "找到" : "未找到"}');
+      if (byKey != null) {
+        debugPrint('📋 [PlaylistProvider] 值类型: ${byKey.runtimeType}');
+      }
+
       if (byKey is List) {
         fromFull = byKey.map((e) => e.toString()).toList();
+        debugPrint('📋 [PlaylistProvider] 从 /musiclist 获取到 ${fromFull.length} 首歌曲');
       }
 
       List<String> musics;
       if (fromFull != null) {
         musics = fromFull;
       } else {
+        debugPrint('📋 [PlaylistProvider] /musiclist 未找到，尝试 getPlaylistMusics API');
         final response = await apiService.getPlaylistMusics(playlistName);
+        debugPrint('📋 [PlaylistProvider] getPlaylistMusics 响应: $response');
+
         // 兼容不同返回字段：music_list / musics / songs
         final dynamicList =
             (response['music_list'] as List?) ??
@@ -124,7 +148,10 @@ class PlaylistNotifier extends StateNotifier<PlaylistState> {
             (response['songs'] as List?) ??
             [];
         musics = dynamicList.map((m) => m.toString()).toList();
+        debugPrint('📋 [PlaylistProvider] 从 getPlaylistMusics 获取到 ${musics.length} 首歌曲');
       }
+
+      debugPrint('✅ [PlaylistProvider] loadPlaylistMusics 完成: $playlistName, ${musics.length} 首歌曲');
 
       state = state.copyWith(
         currentPlaylist: playlistName,
@@ -133,6 +160,7 @@ class PlaylistNotifier extends StateNotifier<PlaylistState> {
         error: null,
       );
     } catch (e) {
+      debugPrint('❌ [PlaylistProvider] loadPlaylistMusics 失败: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

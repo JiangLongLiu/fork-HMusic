@@ -170,12 +170,6 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
                     authState,
                     playbackMode,
                   ),
-                  const SizedBox(height: 12),
-                  // 🎵 显示当前歌单
-                  if (playbackState.currentPlaylistSongs.isNotEmpty)
-                    _buildCurrentPlaylist(playbackState),
-                  if (playbackState.currentPlaylistSongs.isNotEmpty)
-                    const SizedBox(height: 12),
                   if (playbackState.error != null)
                     _buildErrorMessage(playbackState),
                 ],
@@ -1269,7 +1263,7 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
           tooltip: state.playMode.displayName,
         ),
         const SizedBox(width: 32),
-        // 定时关机按钮（长按快速取消定时）
+        // 定时关机按钮（点击弹出选择器，长按快速取消定时）
         GestureDetector(
           onLongPress:
               enabled && state.timerMinutes > 0
@@ -1292,7 +1286,7 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
                         : onSurface.withOpacity(0.4),
                 onPressed:
                     enabled
-                        ? () => ref.read(playbackProvider.notifier).setTimer()
+                        ? () => _showTimerBottomSheet(context, state) // 🎯 修改：弹出选择器
                         : null,
                 tooltip:
                     state.timerMinutes > 0
@@ -1347,147 +1341,6 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
     );
   }
 
-  /// 🎵 显示当前歌单
-  Widget _buildCurrentPlaylist(PlaybackState state) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final currentSong = state.currentMusic?.curMusic ?? '';
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color:
-            isLight
-                ? Colors.white.withOpacity(0.6)
-                : Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.queue_music_rounded,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '当前歌单',
-                style: TextStyle(
-                  color: onSurface,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${state.currentPlaylistSongs.length} 首',
-                style: TextStyle(
-                  color: onSurface.withOpacity(0.6),
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 限制最大高度，超出可滚动
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const ClampingScrollPhysics(),
-              itemCount: state.currentPlaylistSongs.length,
-              itemBuilder: (context, index) {
-                final song = state.currentPlaylistSongs[index];
-                final isCurrentSong = song == currentSong;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  decoration: BoxDecoration(
-                    color:
-                        isCurrentSong
-                            ? Theme.of(
-                              context,
-                            ).colorScheme.primary.withOpacity(0.1)
-                            : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    leading: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color:
-                            isCurrentSong
-                                ? Theme.of(context).colorScheme.primary
-                                : onSurface.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child:
-                            isCurrentSong
-                                ? Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                )
-                                : Text(
-                                  '${index + 1}',
-                                  style: TextStyle(
-                                    color: onSurface.withOpacity(0.7),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                      ),
-                    ),
-                    title: Text(
-                      song,
-                      style: TextStyle(
-                        color:
-                            isCurrentSong
-                                ? Theme.of(context).colorScheme.primary
-                                : onSurface,
-                        fontSize: 14,
-                        fontWeight:
-                            isCurrentSong ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing:
-                        isCurrentSong
-                            ? Icon(
-                              Icons.graphic_eq_rounded,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 20,
-                            )
-                            : null,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 🎨 从封面图提取主色调 (已废弃,改用 _extractDominantColorFromProvider)
   Future<void> _extractDominantColor(String imageUrl) async {
     try {
@@ -1537,5 +1390,232 @@ class _ControlPanelPageState extends ConsumerState<ControlPanelPage>
     } catch (e) {
       debugPrint('❌ [ControlPanel] 提取封面主色调失败: $e');
     }
+  }
+
+  /// ⏰ 显示定时器底部弹窗选择器
+  void _showTimerBottomSheet(BuildContext context, PlaybackState state) {
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true, // 允许自定义高度
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 顶部拖动条
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: onSurfaceColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+
+            // 标题栏
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '定时关机',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurfaceColor,
+                    ),
+                  ),
+                  if (state.timerMinutes > 0)
+                    TextButton.icon(
+                      onPressed: () {
+                        ref.read(playbackProvider.notifier).cancelTimer();
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      label: const Text('取消定时'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.orangeAccent,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // 当前定时状态提示
+            if (state.timerMinutes > 0)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.orangeAccent.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      color: Colors.orangeAccent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '已设置 ${state.timerMinutes} 分钟后关机',
+                        style: TextStyle(
+                          color: onSurfaceColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // 快捷时间选项（横向滚动）
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                height: 110,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: [
+                    _buildTimerOption(context, state, 15, '15分钟'),
+                    _buildTimerOption(context, state, 30, '30分钟'),
+                    _buildTimerOption(context, state, 45, '45分钟'),
+                    _buildTimerOption(context, state, 60, '1小时'),
+                    _buildTimerOption(context, state, 90, '1.5小时'),
+                    _buildTimerOption(context, state, 120, '2小时'),
+                  ],
+                ),
+              ),
+            ),
+
+            // 自定义输入
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: TextField(
+                decoration: InputDecoration(
+                  labelText: '自定义时间（分钟）',
+                  labelStyle: TextStyle(color: onSurfaceColor.withOpacity(0.7)),
+                  hintText: '输入1-999分钟',
+                  hintStyle: TextStyle(color: onSurfaceColor.withOpacity(0.4)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: primaryColor, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.edit_rounded, color: primaryColor),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.check_circle_rounded, color: primaryColor),
+                    onPressed: () {
+                      // 这个按钮只是装饰，实际提交由 onSubmitted 处理
+                    },
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+                style: TextStyle(color: onSurfaceColor, fontSize: 16),
+                onSubmitted: (value) {
+                  final minutes = int.tryParse(value);
+                  if (minutes != null && minutes > 0 && minutes <= 999) {
+                    ref.read(playbackProvider.notifier).setTimerMinutes(minutes);
+                    Navigator.pop(context);
+                  } else {
+                    // 显示错误提示
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('请输入有效的分钟数（1-999）'),
+                        backgroundColor: Colors.redAccent,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ⏰ 构建单个定时器选项卡片
+  Widget _buildTimerOption(
+    BuildContext context,
+    PlaybackState state,
+    int minutes,
+    String label,
+  ) {
+    final isSelected = state.timerMinutes == minutes;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(playbackProvider.notifier).setTimerMinutes(minutes);
+        Navigator.pop(context);
+      },
+      child: Container(
+        width: 100,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? primaryColor.withOpacity(0.15)
+              : onSurfaceColor.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? primaryColor : onSurfaceColor.withOpacity(0.2),
+            width: 2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.timer_outlined,
+              size: 36,
+              color: isSelected ? primaryColor : onSurfaceColor.withOpacity(0.6),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? primaryColor : onSurfaceColor.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

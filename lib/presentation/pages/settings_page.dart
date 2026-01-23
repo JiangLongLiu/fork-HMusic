@@ -46,6 +46,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final colorScheme = theme.colorScheme;
     final onSurface = colorScheme.onSurface;
     final settings = ref.watch(sourceSettingsProvider);
+    final playbackMode = ref.watch(playbackModeProvider); // 🎯 获取当前播放模式
+
+    // 🎯 判断是否为直连模式
+    final isDirectMode = playbackMode == PlaybackMode.miIoTDirect;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置'), centerTitle: true),
@@ -108,31 +112,32 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           const SizedBox(height: 24),
 
-          // 服务器设置分组
-          _buildSettingsGroup(
-            context,
-            title: '服务器设置',
-            children: [
-              _buildSettingsItem(
-                context: context,
-                icon: Icons.http_rounded,
-                title: '服务器账号设置',
-                subtitle: '配置服务器连接信息',
-                onTap: () => context.push('/settings/server'),
-                onSurface: onSurface,
-              ),
-              _buildSettingsItem(
-                context: context,
-                icon: Icons.cloud_upload_rounded,
-                title: 'SCP 上传设置',
-                subtitle: '配置文件上传方式',
-                onTap: () => context.push('/settings/ssh'),
-                onSurface: onSurface,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
+          // 🎯 服务器设置分组（仅 xiaomusic 模式显示）
+          if (!isDirectMode) ...[
+            _buildSettingsGroup(
+              context,
+              title: '服务器设置',
+              children: [
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.http_rounded,
+                  title: '服务器账号设置',
+                  subtitle: '配置服务器连接信息',
+                  onTap: () => context.push('/settings/server'),
+                  onSurface: onSurface,
+                ),
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.cloud_upload_rounded,
+                  title: 'SCP 上传设置',
+                  subtitle: '配置文件上传方式',
+                  onTap: () => context.push('/settings/ssh'),
+                  onSurface: onSurface,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // 下载和工具分组
           _buildSettingsGroup(
@@ -143,22 +148,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _buildQualitySelector(context, ref, settings, onSurface),
               // 本地下载路径显示
               _buildDownloadPathDisplay(context, onSurface),
-              _buildSettingsItem(
-                context: context,
-                icon: Icons.link_rounded,
-                title: '从链接下载',
-                subtitle: '通过链接下载音乐',
-                onTap: () => _showDownloadFromLinkDialog(context, ref),
-                onSurface: onSurface,
-              ),
-              _buildSettingsItem(
-                context: context,
-                icon: Icons.download_rounded,
-                title: '下载任务',
-                subtitle: '查看和管理下载任务',
-                onTap: () => context.push('/downloads'),
-                onSurface: onSurface,
-              ),
+              // 🎯 从链接下载（仅 xiaomusic 模式显示）
+              if (!isDirectMode)
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.link_rounded,
+                  title: '从链接下载',
+                  subtitle: '通过链接下载音乐',
+                  onTap: () => _showDownloadFromLinkDialog(context, ref),
+                  onSurface: onSurface,
+                ),
+              // 🎯 下载任务（仅 xiaomusic 模式显示）
+              if (!isDirectMode)
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.download_rounded,
+                  title: '下载任务',
+                  subtitle: '查看和管理下载任务',
+                  onTap: () => context.push('/downloads'),
+                  onSurface: onSurface,
+                ),
               _buildSettingsItem(
                 context: context,
                 icon: Icons.code_rounded,

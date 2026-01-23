@@ -9,6 +9,9 @@ OPENWRT_USER=${OPENWRT_USER:-"root"}
 OPENWRT_PORT=${OPENWRT_PORT:-22}
 NETWORK_MODE=${NETWORK_MODE:-"host"}
 CONTAINER_IP=${CONTAINER_IP:-"192.168.31.100"}
+IMAGE_TAG=${IMAGE_TAG:-""}
+# Optional Docker Hub proxy/prefix, e.g. docker.m.daocloud.io
+IMAGE_PROXY=${IMAGE_PROXY:-""}
 
 # 颜色输出
 RED='\033[0;31m'
@@ -26,6 +29,7 @@ xiaomusic OpenWrt Docker 网络模式部署脚本
 网络模式选项:
   -n MODE     网络模式 (bridge|host|macvlan，默认: host)
   -i IP       容器IP地址 (仅macvlan模式，默认: 192.168.31.100)
+  -t TAG      镜像标签 (默认: host=latest, macvlan=main; 也可用环境变量 IMAGE_TAG)
   
 基本选项:
   -h IP       OpenWrt IP地址 (默认: 192.168.31.2)
@@ -42,6 +46,7 @@ xiaomusic OpenWrt Docker 网络模式部署脚本
   $0 -n host                                    # 使用host网络模式
   $0 -n macvlan -i 192.168.31.100               # 使用macvlan，容器IP为192.168.31.100
   $0 -h 192.168.31.5 -n bridge                  # 在其他OpenWrt设备上使用桥接模式
+  IMAGE_PROXY=docker.m.daocloud.io $0 -n host -t main   # 通过代理拉取并部署main
 EOF
 }
 
@@ -84,6 +89,10 @@ while [[ $# -gt 0 ]]; do
       OPENWRT_PORT="$2"
       shift 2
       ;;
+    -t)
+      IMAGE_TAG="$2"
+      shift 2
+      ;;
     --help)
       usage
       exit 0
@@ -103,9 +112,21 @@ if [[ ! "$NETWORK_MODE" =~ ^(bridge|host|macvlan)$ ]]; then
   exit 1
 fi
 
+if [[ -z "$IMAGE_TAG" ]]; then
+  if [[ "$NETWORK_MODE" == "macvlan" ]]; then
+    IMAGE_TAG="main"
+  else
+    IMAGE_TAG="latest"
+  fi
+fi
+
 log_info "=== xiaomusic OpenWrt Docker 网络部署 ==="
 log_info "目标设备: ${OPENWRT_USER}@${OPENWRT_IP}:${OPENWRT_PORT}"
 log_info "网络模式: ${NETWORK_MODE}"
+log_info "镜像标签: ${IMAGE_TAG}"
+if [[ -n "$IMAGE_PROXY" ]]; then
+  log_info "镜像代理: ${IMAGE_PROXY}"
+fi
 if [[ "$NETWORK_MODE" == "macvlan" ]]; then
   log_info "容器IP: ${CONTAINER_IP}"
 fi
@@ -169,7 +190,7 @@ version: '3.8'
 
 services:
   xiaomusic:
-    image: hanxi/xiaomusic:main
+    image: hanxi/xiaomusic:${IMAGE_TAG:-main}
     container_name: xiaomusic
     restart: unless-stopped
     networks:
@@ -206,13 +227,20 @@ EOF
     ;;
 esac
 
+# 如果OpenWrt无法直连Docker Hub，可通过代理先拉取再tag到本地镜像名
+if [[ -n "$IMAGE_PROXY" ]]; then
+  log_info "通过代理拉取镜像并进行本地tag..."
+  ssh -p "$OPENWRT_PORT" "${OPENWRT_USER}@${OPENWRT_IP}" \
+    "docker pull ${IMAGE_PROXY}/hanxi/xiaomusic:${IMAGE_TAG} && docker tag ${IMAGE_PROXY}/hanxi/xiaomusic:${IMAGE_TAG} hanxi/xiaomusic:${IMAGE_TAG}"
+fi
+
 # 停止现有服务
 log_info "停止现有服务..."
-ssh -p "$OPENWRT_PORT" "${OPENWRT_USER}@${OPENWRT_IP}" "cd /opt/xiaomusic && docker-compose down" 2>/dev/null || true
+ssh -p "$OPENWRT_PORT" "${OPENWRT_USER}@${OPENWRT_IP}" "cd /opt/xiaomusic && IMAGE_TAG=${IMAGE_TAG} docker-compose down" 2>/dev/null || true
 
 # 启动服务
 log_info "启动xiaomusic服务..."
-ssh -p "$OPENWRT_PORT" "${OPENWRT_USER}@${OPENWRT_IP}" "cd /opt/xiaomusic && docker-compose up -d"
+ssh -p "$OPENWRT_PORT" "${OPENWRT_USER}@${OPENWRT_IP}" "cd /opt/xiaomusic && IMAGE_TAG=${IMAGE_TAG} docker-compose up -d"
 
 # 等待服务启动
 log_info "等待服务启动..."

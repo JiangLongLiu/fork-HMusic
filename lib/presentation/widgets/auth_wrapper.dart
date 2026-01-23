@@ -192,9 +192,11 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
     // 🎯 新增：监听当前播放模式和直连模式状态
     final playbackMode = ref.watch(playbackModeProvider);
     final directModeState = ref.watch(directModeProvider);
+    final initState = ref.watch(initializationProvider); // 🎯 监听初始化状态
 
     print('[AuthWrapper] 🎨 build - _updateChecked: $_updateChecked, needsUpdate: ${updState.needsUpdate}');
     print('[AuthWrapper] 🎯 当前模式: $playbackMode, authState: ${authState.runtimeType}, directState: ${directModeState.runtimeType}');
+    print('[AuthWrapper] 🎯 初始化状态: progress=${initState.progress}, completed=${initState.isCompleted}');
 
     // 等待更新检查完成后再决定显示什么
     // 如果还在检查中，显示空白页面或加载指示器
@@ -215,6 +217,16 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         downloadUrl: updState.downloadUrl,
         force: updState.force,
         targetVersion: updState.targetVersion,
+      );
+    }
+
+    // 🎯 等待初始化完成（避免直连模式静默登录时显示登录页）
+    if (!initState.isCompleted) {
+      print('[AuthWrapper] ⏳ 等待初始化完成...');
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
 

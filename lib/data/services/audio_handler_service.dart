@@ -29,6 +29,12 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
   StreamSubscription? _durationSubscription;
   StreamSubscription? _processingStateSubscription;
 
+  // 🎯 远程播放模式标志（直连模式/xiaomusic远程播放）
+  bool _isRemotePlayback = false;
+
+  // 🎯 用户交互时间戳（用于区分用户操作和系统自动暂停）
+  DateTime? _lastUserInteraction;
+
   AudioHandlerService({required AudioPlayer player}) : _player = player {
     _init();
   }
@@ -45,6 +51,15 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
     } else {
       _stopListeningToPlayer();
     }
+  }
+
+  /// 🎯 设置远程播放模式
+  /// 远程播放时，系统触发的暂停不会影响音箱播放
+  void setRemotePlayback(bool isRemote) {
+    if (_isRemotePlayback == isRemote) return;
+
+    _isRemotePlayback = isRemote;
+    debugPrint('🔧 [AudioHandler] ${isRemote ? "启用" : "禁用"}远程播放模式');
   }
 
   void _init() {
@@ -203,16 +218,10 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
   Future<void> play() async {
     debugPrint('🎵 [AudioHandler] 播放');
 
-    // 🔧 如果有外部回调(远程播放),调用回调而不是本地播放器
-    if (onPlay != null) {
-      onPlay!();
-      return;
-    }
+    // 🎯 记录用户交互时间（通知栏按钮点击）
+    _lastUserInteraction = DateTime.now();
 
-    // 否则使用本地播放器
-    await _player.play();
-
-    // 🔧 强制更新播放状态,确保通知栏显示正确
+    // 🔧 立即更新播放状态（在调用回调前），避免按钮闪烁
     playbackState.add(playbackState.value.copyWith(
       playing: true,
       processingState: AudioProcessingState.ready,
@@ -222,22 +231,68 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
         MediaControl.skipToNext,
       ],
     ));
-  }
-
-  @override
-  Future<void> pause() async {
-    debugPrint('🎵 [AudioHandler] 暂停');
 
     // 🔧 如果有外部回调(远程播放),调用回调而不是本地播放器
-    if (onPause != null) {
-      onPause!();
+    if (onPlay != null) {
+      onPlay!();
       return;
     }
 
     // 否则使用本地播放器
-    await _player.pause();
+    await _player.play();
+  }
 
-    // 🔧 强制更新暂停状态,确保通知栏显示正确
+  @override
+  Future<void> pause() async {
+    debugPrint('🎵 [AudioHandler] 暂停（可能是系统触发）');
+
+    // 🎯 远程播放模式：智能判断是用户操作还是系统自动暂停
+    if (_isRemotePlayback) {
+      final now = DateTime.now();
+      final timeSinceLastInteraction = _lastUserInteraction != null
+          ? now.difference(_lastUserInteraction!).inMilliseconds
+          : 999999; // 如果没有交互记录，认为是系统触发
+
+      // 时间窗口：200ms内认为是通知栏按钮点击
+      if (timeSinceLastInteraction < 200) {
+        debugPrint('🎯 [AudioHandler] 远程模式 - 用户主动暂停（${timeSinceLastInteraction}ms）');
+
+        // 🔧 立即更新通知栏状态（在调用回调前），避免按钮闪烁
+        playbackState.add(playbackState.value.copyWith(
+          playing: false,
+          processingState: AudioProcessingState.ready,
+          controls: [
+            MediaControl.skipToPrevious,
+            MediaControl.play,
+            MediaControl.skipToNext,
+          ],
+        ));
+
+        // 用户主动暂停：调用回调发送暂停指令
+        if (onPause != null) {
+          onPause!();
+        }
+      } else {
+        debugPrint('🎯 [AudioHandler] 远程模式 - 忽略系统暂停（${timeSinceLastInteraction}ms）');
+        // 系统自动暂停：只更新UI，不影响音箱
+        playbackState.add(playbackState.value.copyWith(
+          playing: false,
+          processingState: AudioProcessingState.ready,
+          controls: [
+            MediaControl.skipToPrevious,
+            MediaControl.play,
+            MediaControl.skipToNext,
+          ],
+        ));
+      }
+
+      return;
+    }
+
+    // 🎯 记录用户交互时间（通知栏按钮点击）
+    _lastUserInteraction = DateTime.now();
+
+    // 🔧 立即更新暂停状态（在调用回调前），避免按钮闪烁
     playbackState.add(playbackState.value.copyWith(
       playing: false,
       processingState: AudioProcessingState.ready,
@@ -247,6 +302,15 @@ class AudioHandlerService extends BaseAudioHandler with QueueHandler, SeekHandle
         MediaControl.skipToNext,
       ],
     ));
+
+    // 🔧 本地播放模式或有外部回调：正常处理暂停
+    if (onPause != null) {
+      onPause!();
+      return;
+    }
+
+    // 否则使用本地播放器
+    await _player.pause();
   }
 
   @override

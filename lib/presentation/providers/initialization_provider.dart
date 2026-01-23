@@ -155,7 +155,7 @@ class InitializationNotifier extends StateNotifier<InitializationState> {
           androidNotificationChannelName: 'HMusic',
           androidNotificationOngoing: false,
           androidShowNotificationBadge: true,
-          androidStopForegroundOnPause: false,
+          androidStopForegroundOnPause: false, // 🎯 保持后台运行（本地播放需要）
         ),
       );
 

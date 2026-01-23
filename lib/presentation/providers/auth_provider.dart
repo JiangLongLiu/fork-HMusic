@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/network/dio_client.dart';
+import 'direct_mode_provider.dart'; // 🎯 导入播放模式定义
 
 sealed class AuthState {
   const AuthState();
@@ -34,28 +35,48 @@ class AuthError extends AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthInitial()) {
+  final Ref ref; // 🎯 保存 ref 引用以便访问其他 Provider
+
+  AuthNotifier(this.ref) : super(const AuthInitial()) {
     _loadSavedCredentials();
   }
 
   Future<void> _loadSavedCredentials() async {
     try {
+      // 🎯 关键修复：检查当前播放模式，只在 xiaomusic 模式下自动登录
       final prefs = await SharedPreferences.getInstance();
+
+      // 🎯 读取播放模式（与 direct_mode_provider.dart 中的逻辑一致）
+      final modeString = prefs.getString('playback_mode');
+      final playbackMode = modeString == 'miIoTDirect'
+          ? PlaybackMode.miIoTDirect
+          : PlaybackMode.xiaomusic;
+
+      debugPrint('🔧 [AuthProvider] 当前播放模式: $playbackMode');
+
+      // 🎯 只有在 xiaomusic 模式下才尝试自动登录
+      if (playbackMode != PlaybackMode.xiaomusic) {
+        debugPrint('🔧 [AuthProvider] 非 xiaomusic 模式，跳过自动登录');
+        return;
+      }
+
       final serverUrl = prefs.getString(AppConstants.prefsServerUrl);
       final username = prefs.getString(AppConstants.prefsUsername);
       final password = prefs.getString(AppConstants.prefsPassword);
 
       if (serverUrl != null && username != null && password != null) {
-        debugPrint('尝试自动登录: $username@$serverUrl');
+        debugPrint('🔧 [AuthProvider] xiaomusic 模式，尝试自动登录: $username@$serverUrl');
         // 自动登录时不显示 Loading 状态，直接尝试登录
         await _silentLogin(
           serverUrl: serverUrl,
           username: username,
           password: password,
         );
+      } else {
+        debugPrint('🔧 [AuthProvider] xiaomusic 模式，但未保存登录凭证');
       }
     } catch (e) {
-      debugPrint('自动登录失败: $e');
+      debugPrint('❌ [AuthProvider] 自动登录失败: $e');
     }
   }
 
@@ -85,8 +106,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         serverUrl: cleanUrl,
         username: username,
       );
+      debugPrint('✅ [AuthProvider] 静默登录成功: $username@$cleanUrl');
     } catch (e) {
-      debugPrint('静默登录失败: $e');
+      debugPrint('❌ [AuthProvider] 静默登录失败: $e');
       // 失败时保持 AuthInitial 状态，显示登录页
       state = const AuthInitial();
     }
@@ -155,7 +177,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier();
+  return AuthNotifier(ref); // 🎯 传入 ref 引用
 });
 
 // 提示：`apiServiceProvider` 已迁移至 `presentation/providers/dio_provider.dart`

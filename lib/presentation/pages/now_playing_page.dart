@@ -67,9 +67,13 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                current?.curPlaylist ?? '',
+                current?.curPlaylist?.isNotEmpty == true
+                    ? current!.curPlaylist!
+                    : '未知歌单',  // ✅ 提供默认文本
                 style: TextStyle(
-                  color: onSurface.withOpacity(0.7),
+                  color: onSurface.withOpacity(
+                    current?.curPlaylist?.isNotEmpty == true ? 0.7 : 0.4  // ✅ 未知歌单显示更淡
+                  ),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,

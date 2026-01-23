@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/mi_iot_service.dart';
 import '../../data/services/audio_proxy_server.dart';
 import 'audio_proxy_provider.dart';
+import 'source_settings_provider.dart'; // 🎯 导入音源设置（用于获取公共代理URL）
 
 /// 播放模式类型
 enum PlaybackMode {
@@ -83,6 +84,21 @@ class DirectModeAuthenticated extends DirectModeState {
   }
 }
 
+/// 登录失败（🎯 特殊：需要验证码）
+class DirectModeNeedsCaptcha extends DirectModeState {
+  final String captchaUrl;
+  final String account; // 保存账号用于重新登录
+  final String password; // 保存密码用于重新登录
+  final String message;
+
+  const DirectModeNeedsCaptcha({
+    required this.captchaUrl,
+    required this.account,
+    required this.password,
+    this.message = '需要输入验证码',
+  });
+}
+
 /// 登录失败
 class DirectModeError extends DirectModeState {
   final String message;
@@ -156,7 +172,7 @@ class DirectModeNotifier extends StateNotifier<DirectModeState> {
       );
 
       // 🎯 自动设置代理服务器
-      _setupProxyServer(miService);
+      await _setupProxyServer(miService);
 
       debugPrint('✅ [DirectMode] 自动登录成功，找到 ${devices.length} 个设备');
       if (savedDeviceId != null) {
@@ -173,6 +189,7 @@ class DirectModeNotifier extends StateNotifier<DirectModeState> {
   Future<void> login({
     required String account,
     required String password,
+    String? captchaCode, // 🎯 新增：验证码参数
     bool saveCredentials = true,
   }) async {
     state = const DirectModeLoading();
@@ -180,15 +197,32 @@ class DirectModeNotifier extends StateNotifier<DirectModeState> {
     try {
       final miService = MiIoTService();
 
-      // 登录小米账号
-      final success = await miService.login(account, password);
+      // 登录小米账号（🎯 传入验证码）
+      final success = await miService.login(account, password, captchaCode: captchaCode);
 
       if (!success) {
+        // 🎯 检查是否需要验证码
+        final lastResponse = miService.lastLoginResponse;
+        if (lastResponse != null && lastResponse['code'] == 70016) {
+          final captchaUrl = lastResponse['captchaUrl'] as String?;
+          if (captchaUrl != null && captchaUrl.isNotEmpty) {
+            debugPrint('⚠️ [DirectMode] 需要验证码登录');
+            state = DirectModeNeedsCaptcha(
+              captchaUrl: captchaUrl,
+              account: account,
+              password: password,
+              message: '需要输入验证码',
+            );
+            return;
+          }
+        }
+
+        // 其他登录失败情况
         state = const DirectModeError(
           '登录失败\n\n'
           '可能原因：\n'
           '1. 账号密码错误\n'
-          '2. 需要安全验证（请先在米家APP登录）\n'
+          '2. 验证码错误\n'
           '3. 登录频繁，请稍后再试'
         );
         return;
@@ -217,7 +251,7 @@ class DirectModeNotifier extends StateNotifier<DirectModeState> {
       );
 
       // 🎯 自动设置代理服务器
-      _setupProxyServer(miService);
+      await _setupProxyServer(miService);
 
       debugPrint('✅ [DirectMode] 登录成功，找到 ${devices.length} 个设备');
     } catch (e) {
@@ -327,17 +361,49 @@ class DirectModeNotifier extends StateNotifier<DirectModeState> {
   }
 
   /// 🎯 自动设置代理服务器（内部方法）
-  void _setupProxyServer(MiIoTService miService) {
+  Future<void> _setupProxyServer(MiIoTService miService) async {
     try {
+      // 🎯 等待 SourceSettings 加载完成（最多等待 3 秒）
+      final notifier = _ref.read(sourceSettingsProvider.notifier);
+      int waitCount = 0;
+      while (!notifier.isLoaded && waitCount < 30) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        waitCount++;
+      }
+
+      // 🎯 优先使用公共代理（Cloudflare Workers）
+      final sourceSettings = _ref.read(sourceSettingsProvider);
+      debugPrint('🔧 [DirectMode] 代理设置检查: useAudioProxy=${sourceSettings.useAudioProxy}, url=${sourceSettings.audioProxyUrl}');
+
+      if (sourceSettings.useAudioProxy && sourceSettings.audioProxyUrl.isNotEmpty) {
+        miService.setPublicProxyUrl(sourceSettings.audioProxyUrl);
+        debugPrint('✅ [DirectMode] 已设置公共音频代理: ${sourceSettings.audioProxyUrl}');
+      } else {
+        miService.setPublicProxyUrl(null); // 清除公共代理
+        debugPrint('⚠️ [DirectMode] 公共音频代理未启用 (useAudioProxy=${sourceSettings.useAudioProxy}, url=${sourceSettings.audioProxyUrl})');
+      }
+
+      // 本地代理（作为备选，需要同一局域网）
       final proxyServer = _ref.read(audioProxyServerProvider);
       if (proxyServer != null && proxyServer.isRunning) {
         miService.setProxyServer(proxyServer);
-        debugPrint('✅ [DirectMode] 已自动设置代理服务器: ${proxyServer.serverUrl}');
+        debugPrint('✅ [DirectMode] 已设置本地代理服务器: ${proxyServer.serverUrl}');
       } else {
-        debugPrint('⚠️ [DirectMode] 代理服务器未运行，将使用直接URL（可能不稳定）');
+        debugPrint('⚠️ [DirectMode] 本地代理服务器未运行');
       }
     } catch (e) {
       debugPrint('❌ [DirectMode] 设置代理服务器失败: $e');
+    }
+  }
+
+  /// 🎯 刷新代理设置（供外部调用，如设置更新后）
+  Future<void> refreshProxySettings() async {
+    final currentState = state;
+    if (currentState is DirectModeAuthenticated) {
+      await _setupProxyServer(currentState.miService);
+      debugPrint('✅ [DirectMode] 代理设置已刷新');
+    } else {
+      debugPrint('⚠️ [DirectMode] 未登录，无法刷新代理设置');
     }
   }
 }

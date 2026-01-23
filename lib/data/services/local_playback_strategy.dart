@@ -51,7 +51,7 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
   }
 
   static AudioHandlerService? get sharedAudioHandler => _sharedAudioHandler;
-  final MusicApiService _apiService;
+  final MusicApiService? _apiService; // 🎯 改为可选参数,支持完全独立模式
   AudioPlayer? _player; // 🔧 改为可空，从共享的静态变量获取
   AudioHandlerService? _audioHandler;
   int _loadToken = 0;
@@ -80,7 +80,7 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
   Function()? onNext;
   Function()? onPrevious;
 
-  LocalPlaybackStrategy({required MusicApiService apiService})
+  LocalPlaybackStrategy({MusicApiService? apiService})
     : _apiService = apiService {
     _initAudioSession();
 
@@ -324,22 +324,28 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
 
       String playUrl = url ?? '';
       if (playUrl.isEmpty) {
-        debugPrint('🎵 [LocalPlayback] 从服务器获取音乐链接: $musicName');
-        final musicInfo = await _apiService.getMusicInfo(musicName);
-        playUrl = musicInfo['url']?.toString() ?? '';
-        if (playUrl.isEmpty) {
-          throw Exception('无法获取音乐播放链接');
+        // 🎯 如果没有传入 URL,尝试从 xiaomusic 服务器获取(如果配置了的话)
+        if (_apiService != null) {
+          debugPrint('🎵 [LocalPlayback] 从 xiaomusic 服务器获取音乐链接: $musicName');
+          final musicInfo = await _apiService!.getMusicInfo(musicName);
+          playUrl = musicInfo['url']?.toString() ?? '';
+          if (playUrl.isEmpty) {
+            throw Exception('无法从服务器获取音乐播放链接');
+          }
+          debugPrint('🎵 [LocalPlayback] 获取到播放链接: $playUrl');
+        } else {
+          // 🎯 完全独立模式:没有 apiService,必须传入 URL
+          throw Exception('播放失败:未传入音乐URL,且未配置 xiaomusic 服务器');
         }
-        debugPrint('🎵 [LocalPlayback] 获取到播放链接: $playUrl');
       }
 
-      // 🔧 将内网地址替换为登录时的域名(仅对服务器本地音乐)
+      // 🔧 将内网地址替换为登录时的域名(仅对服务器本地音乐,且配置了 apiService 时)
       // 判断是否需要替换: 如果URL不是http/https开头或包含内网IP,才需要替换
-      if (_shouldReplaceWithLoginDomain(playUrl)) {
+      if (_apiService != null && _shouldReplaceWithLoginDomain(playUrl)) {
         playUrl = _replaceWithLoginDomain(playUrl);
         debugPrint('🔄 [LocalPlayback] URL已替换为登录域名');
       } else {
-        debugPrint('🌐 [LocalPlayback] 在线音乐URL,保持原样');
+        debugPrint('🌐 [LocalPlayback] 在线音乐URL或完全独立模式,保持原样');
       }
       debugPrint('✅ [LocalPlayback] 最终播放链接: $playUrl');
 
@@ -688,9 +694,12 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
   /// 返回 true: 需要替换(服务器本地音乐)
   /// 返回 false: 不需要替换(在线音乐直链)
   bool _shouldReplaceWithLoginDomain(String url) {
+    // 🎯 如果没有 apiService,不需要替换
+    if (_apiService == null) return false;
+
     try {
       final uri = Uri.parse(url);
-      final loginBaseUrl = _apiService.baseUrl;
+      final loginBaseUrl = _apiService!.baseUrl;
       final loginUri = Uri.parse(loginBaseUrl);
 
       // 如果URL的域名和登录服务器的域名相同,说明是服务器音乐,需要替换
@@ -723,9 +732,12 @@ class LocalPlaybackStrategy implements PlaybackStrategy {
   /// - 登录地址: https://music.example.com:8443
   /// - 替换后: https://music.example.com:8443/music/download/song.mp3
   String _replaceWithLoginDomain(String nasUrl) {
+    // 🎯 如果没有 apiService,直接返回原URL
+    if (_apiService == null) return nasUrl;
+
     try {
       // 获取登录时保存的服务器地址
-      final loginBaseUrl = _apiService.baseUrl;
+      final loginBaseUrl = _apiService!.baseUrl;
       debugPrint('🔄 [LocalPlayback] URL替换:');
       debugPrint('   - NAS URL: $nasUrl');
       debugPrint('   - 登录地址: $loginBaseUrl');

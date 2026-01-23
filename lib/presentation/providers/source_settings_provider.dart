@@ -25,6 +25,8 @@ class SourceSettings {
   final String
   jsSearchStrategy; // JS流程下搜索优先级: qqOnly|kuwoOnly|neteaseOnly|qqFirst|kuwoFirst|neteaseFirst
   final String defaultDownloadQuality; // 默认下载音质: 'lossless' | 'high' | 'standard'
+  final String audioProxyUrl; // 🎯 公共音频代理服务器URL (Cloudflare Workers)
+  final bool useAudioProxy; // 🎯 是否启用公共音频代理（直连模式）
 
   const SourceSettings({
     this.enabled = true,
@@ -48,6 +50,8 @@ class SourceSettings {
     this.localScriptPath = '', // 默认无本地脚本路径
     this.jsSearchStrategy = 'qqFirst',
     this.defaultDownloadQuality = 'high', // 默认高品质 (320k)
+    this.audioProxyUrl = 'https://hmusic.hcur.asia', // 🎯 公共音频代理（国内可直接访问）
+    this.useAudioProxy = true, // 🎯 默认启用，解决 CDN 限制问题
   });
 
   SourceSettings copyWith({
@@ -71,6 +75,8 @@ class SourceSettings {
     String? localScriptPath,
     String? jsSearchStrategy,
     String? defaultDownloadQuality,
+    String? audioProxyUrl,
+    bool? useAudioProxy,
   }) {
     return SourceSettings(
       enabled: enabled ?? this.enabled,
@@ -94,6 +100,8 @@ class SourceSettings {
       localScriptPath: localScriptPath ?? this.localScriptPath,
       jsSearchStrategy: jsSearchStrategy ?? this.jsSearchStrategy,
       defaultDownloadQuality: defaultDownloadQuality ?? this.defaultDownloadQuality,
+      audioProxyUrl: audioProxyUrl ?? this.audioProxyUrl,
+      useAudioProxy: useAudioProxy ?? this.useAudioProxy,
     );
   }
 }
@@ -119,6 +127,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
   static const _kLocalScriptPath = 'source_local_script_path';
   static const _kJsSearchStrategy = 'source_js_search_strategy';
   static const _kDefaultDownloadQuality = 'source_default_download_quality';
+  static const _kAudioProxyUrl = 'source_audio_proxy_url';
+  static const _kUseAudioProxy = 'source_use_audio_proxy';
 
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
@@ -150,6 +160,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       final localScriptPath = prefs.getString(_kLocalScriptPath);
       final jsSearchStrategy = prefs.getString(_kJsSearchStrategy);
       final defaultDownloadQuality = prefs.getString(_kDefaultDownloadQuality);
+      final audioProxyUrl = prefs.getString(_kAudioProxyUrl);
+      final useAudioProxy = prefs.getBool(_kUseAudioProxy);
 
       print('[XMC] 🔧 [SourceSettings] 加载设置:');
       print('  - enabled: $enabled');
@@ -168,6 +180,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       print('  - localScriptPath: $localScriptPath');
       print('  - unifiedApiBase: $unifiedApiBase');
       print('  - state.primarySource: ${state.primarySource} (当前状态默认值)');
+      print('  - audioProxyUrl: $audioProxyUrl');
+      print('  - useAudioProxy: $useAudioProxy');
 
       // 公开版本：清理所有可能的xiaoqiu.js遗留配置
       String? finalUrl = scriptUrl;
@@ -223,6 +237,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
         localScriptPath: localScriptPath ?? state.localScriptPath,
         jsSearchStrategy: jsSearchStrategy ?? state.jsSearchStrategy,
         defaultDownloadQuality: defaultDownloadQuality ?? state.defaultDownloadQuality,
+        audioProxyUrl: audioProxyUrl ?? state.audioProxyUrl,
+        useAudioProxy: useAudioProxy ?? state.useAudioProxy,
       );
     } catch (e) {
       print('[XMC] ❌ [SourceSettings] 加载设置失败: $e');
@@ -247,6 +263,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
     print('  - scriptPreset: ${s.scriptPreset}');
     print('  - localScriptPath: ${s.localScriptPath}');
     print('  - unifiedApiBase: ${s.unifiedApiBase}');
+    print('  - audioProxyUrl: ${s.audioProxyUrl}');
+    print('  - useAudioProxy: ${s.useAudioProxy}');
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -271,6 +289,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       await prefs.setString(_kLocalScriptPath, s.localScriptPath);
       await prefs.setString(_kJsSearchStrategy, s.jsSearchStrategy);
       await prefs.setString(_kDefaultDownloadQuality, s.defaultDownloadQuality);
+      await prefs.setString(_kAudioProxyUrl, s.audioProxyUrl);
+      await prefs.setBool(_kUseAudioProxy, s.useAudioProxy);
 
       // 只有保存成功后才更新state
       state = s;
@@ -300,6 +320,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
 
       final savedApiBase = prefs.getString(_kUnifiedApiBase);
       final savedScriptPreset = prefs.getString(_kScriptPreset);
+      final savedAudioProxyUrl = prefs.getString(_kAudioProxyUrl);
+      final savedUseAudioProxy = prefs.getBool(_kUseAudioProxy);
 
       print('[XMC] 🔧 [SourceSettings] SharedPreferences保存验证:');
       print('  - enabled: $savedEnabled');
@@ -317,6 +339,8 @@ class SourceSettingsNotifier extends StateNotifier<SourceSettings> {
       print('  - localScriptPath: $savedLocalScriptPath');
       print('  - unifiedApiBase: $savedApiBase');
       print('  - jsSearchStrategy: $savedJsSearchStrategy');
+      print('  - audioProxyUrl: $savedAudioProxyUrl');
+      print('  - useAudioProxy: $savedUseAudioProxy');
     } catch (e) {
       print('[XMC] ⚠️ [SourceSettings] 验证保存结果时出错: $e');
     }

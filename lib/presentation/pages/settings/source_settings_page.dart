@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/source_settings_provider.dart';
 import '../../providers/js_script_manager_provider.dart';
 import '../../providers/js_proxy_provider.dart';
+import '../../providers/direct_mode_provider.dart'; // 🎯 导入用于刷新代理设置
 import '../../widgets/app_snackbar.dart';
 import '../../../data/models/js_script.dart';
+import 'package:dio/dio.dart'; // 🎯 导入用于测试代理
 
 class SourceSettingsPage extends ConsumerStatefulWidget {
   const SourceSettingsPage({super.key});
@@ -15,9 +17,11 @@ class SourceSettingsPage extends ConsumerStatefulWidget {
 
 class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
   late TextEditingController _apiCtrl;
+  late TextEditingController _proxyUrlCtrl; // 🎯 代理URL控制器
   String _platform = 'qq';
   bool _initialized = false;
   bool _userModified = false;
+  bool _useAudioProxy = false; // 🎯 是否启用音频代理
   ProviderSubscription<SourceSettings>? _settingsSub;
   // _jsEnabled 已由 _primary 状态隐含控制，无需单独使用
   String _primary = 'unified'; // 'unified' | 'js_external'
@@ -28,6 +32,7 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
   void initState() {
     super.initState();
     _apiCtrl = TextEditingController();
+    _proxyUrlCtrl = TextEditingController(); // 🎯 初始化代理URL控制器
 
     // 监听 Provider 的变化：当设置加载完成且用户未修改时，同步到本地状态
     _settingsSub = ref.listenManual<SourceSettings>(sourceSettingsProvider, (
@@ -41,6 +46,8 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
         _platform = next.platform == 'auto' ? 'qq' : next.platform;
         _apiCtrl.text = next.unifiedApiBase;
         _jsSearchStrategy = next.jsSearchStrategy;
+        _useAudioProxy = next.useAudioProxy; // 🎯 同步代理开关状态
+        _proxyUrlCtrl.text = next.audioProxyUrl; // 🎯 同步代理URL
       });
     });
   }
@@ -49,6 +56,7 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
   void dispose() {
     _settingsSub?.close();
     _apiCtrl.dispose();
+    _proxyUrlCtrl.dispose(); // 🎯 释放代理URL控制器
     super.dispose();
   }
 
@@ -74,6 +82,8 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
       _platform = settings.platform == 'auto' ? 'qq' : settings.platform;
       _primary = settings.primarySource;
       _jsSearchStrategy = settings.jsSearchStrategy;
+      _useAudioProxy = settings.useAudioProxy; // 🎯 初始化代理开关
+      _proxyUrlCtrl.text = settings.audioProxyUrl; // 🎯 初始化代理URL
       _initialized = true;
 
       print('[XMC] 🔧 [SourceSettingsPage] 首次初始化完成: $_primary');
@@ -94,6 +104,11 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
           if (_primary == 'js_external') ...[
             _buildJsScriptCard(context, scripts, selectedScript, scriptManager),
           ],
+
+          const SizedBox(height: 16),
+
+          // 🎯 音频代理配置卡片（直连模式专用）
+          _buildAudioProxyCard(context, onSurface),
 
           const SizedBox(height: 24),
           _buildSaveButton(context, settings, selectedScript),
@@ -584,6 +599,9 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
                 ? selectedScript?.content ?? ''
                 : '',
         jsSearchStrategy: _jsSearchStrategy,
+        // 🎯 保存代理配置
+        useAudioProxy: _useAudioProxy,
+        audioProxyUrl: _proxyUrlCtrl.text.trim(),
       );
 
       await ref.read(sourceSettingsNotifierProvider).save(newSettings);
@@ -596,6 +614,10 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
               .loadScriptByScript(selectedScript);
         } catch (_) {}
       }
+
+      // 🎯 刷新直连模式的代理设置（如果已登录）
+      ref.read(directModeProvider.notifier).refreshProxySettings();
+
       if (!mounted) return;
 
       AppSnackBar.show(
@@ -688,6 +710,259 @@ class _SourceSettingsPageState extends ConsumerState<SourceSettingsPage> {
               Icon(Icons.check_circle, color: colorScheme.primary, size: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 🎯 音频代理配置卡片（直连模式专用）
+  Widget _buildAudioProxyCard(BuildContext context, Color onSurface) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceVariant.withOpacity(0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.cloud_sync_outlined,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '音频代理服务器',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '直连模式专用，解决CDN播放限制',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _useAudioProxy,
+                  onChanged: (value) {
+                    setState(() {
+                      _useAudioProxy = value;
+                      _userModified = true;
+                    });
+                  },
+                ),
+              ],
+            ),
+
+            if (_useAudioProxy) ...[
+              const SizedBox(height: 16),
+
+              // 代理URL输入框
+              TextField(
+                controller: _proxyUrlCtrl,
+                decoration: InputDecoration(
+                  labelText: '代理服务器地址',
+                  hintText: 'https://your-worker.workers.dev',
+                  prefixIcon: const Icon(Icons.link),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  helperText: '填入你部署的 Cloudflare Worker 地址',
+                  helperMaxLines: 2,
+                ),
+                keyboardType: TextInputType.url,
+                onChanged: (_) {
+                  _userModified = true;
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // 测试连接按钮
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _testProxyConnection(context),
+                      icon: const Icon(Icons.network_check, size: 18),
+                      label: const Text('测试连接'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showProxyHelp(context),
+                      icon: const Icon(Icons.help_outline, size: 18),
+                      label: const Text('部署教程'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 🎯 测试代理连接
+  Future<void> _testProxyConnection(BuildContext context) async {
+    final proxyUrl = _proxyUrlCtrl.text.trim();
+
+    if (proxyUrl.isEmpty) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          const SnackBar(content: Text('请先输入代理地址'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    // 显示加载提示
+    if (mounted) {
+      AppSnackBar.show(
+        context,
+        const SnackBar(content: Text('正在测试连接...'), duration: Duration(seconds: 2)),
+      );
+    }
+
+    try {
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ));
+
+      // 测试健康检查端点
+      final healthUrl = proxyUrl.endsWith('/') ? '${proxyUrl}health' : '$proxyUrl/health';
+      final response = await dio.get(healthUrl);
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map && data['status'] == 'ok') {
+          if (mounted) {
+            AppSnackBar.show(
+              context,
+              SnackBar(
+                content: Text('连接成功！服务版本: ${data['version'] ?? '未知'}'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            AppSnackBar.show(
+              context,
+              const SnackBar(content: Text('连接成功，但响应格式异常'), backgroundColor: Colors.orange),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            SnackBar(content: Text('连接失败: HTTP ${response.statusCode}'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          SnackBar(content: Text('连接失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// 🎯 显示代理部署帮助
+  Future<void> _showProxyHelp(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cloud_outlined),
+            SizedBox(width: 8),
+            Text('部署音频代理'),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '为什么需要代理？',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '小爱音箱直接访问音乐CDN可能被限制（User-Agent/Referer检查）。\n'
+                '通过代理转发可以绕过这些限制。',
+              ),
+              SizedBox(height: 16),
+              Text(
+                '部署步骤：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '1. 注册 Cloudflare 账号\n'
+                '2. 进入 Workers & Pages\n'
+                '3. 创建新 Worker\n'
+                '4. 粘贴项目提供的代码\n'
+                '5. 部署后获取URL',
+              ),
+              SizedBox(height: 16),
+              Text(
+                '免费额度：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '每天 100,000 次请求，个人使用完全足够！',
+              ),
+              SizedBox(height: 16),
+              Text(
+                '📁 代码位置：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'cloudflare-worker/worker.js\n'
+                'cloudflare-worker/README.md',
+                style: TextStyle(fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('知道了'),
+          ),
+        ],
       ),
     );
   }

@@ -32,6 +32,10 @@ class RemotePlaybackStrategy implements PlaybackStrategy {
     if (_audioHandler != null) {
       _audioHandler!.setListenToLocalPlayer(false);
       debugPrint('🔧 [RemotePlayback] 已禁用本地播放器监听');
+
+      // 🎯 启用远程播放模式（防止APP退后台时音箱暂停）
+      _audioHandler!.setRemotePlayback(true);
+      debugPrint('🔧 [RemotePlayback] 已启用远程播放模式');
     }
 
     // 🔧 连接通知栏控制按钮到远程播放
@@ -262,6 +266,10 @@ class RemotePlaybackStrategy implements PlaybackStrategy {
     if (_audioHandler != null) {
       _audioHandler!.setListenToLocalPlayer(true);
       debugPrint('🔧 [RemotePlayback] 已重新启用本地播放器监听');
+
+      // 🎯 恢复本地播放模式
+      _audioHandler!.setRemotePlayback(false);
+      debugPrint('🔧 [RemotePlayback] 已恢复本地播放模式');
     }
   }
 }

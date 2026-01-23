@@ -29,8 +29,30 @@ class MiIoTService {
   // 🎯 代理服务器（用于转发音频流）
   AudioProxyServer? _proxyServer;
 
+  // 🎯 公共音频代理URL（Cloudflare Workers）
+  String? _publicProxyUrl;
+
   // 登录状态
   bool get isLoggedIn => _serviceToken != null && _userId != null;
+
+  /// 🎯 设置公共音频代理URL（Cloudflare Workers）
+  /// 格式: https://your-worker.workers.dev
+  void setPublicProxyUrl(String? proxyUrl) {
+    _publicProxyUrl = proxyUrl?.trim();
+    if (_publicProxyUrl != null && _publicProxyUrl!.isNotEmpty) {
+      // 移除末尾斜杠
+      if (_publicProxyUrl!.endsWith('/')) {
+        _publicProxyUrl = _publicProxyUrl!.substring(0, _publicProxyUrl!.length - 1);
+      }
+      print('✅ [MiIoT] 已设置公共代理: $_publicProxyUrl');
+    } else {
+      _publicProxyUrl = null;
+      print('⚠️ [MiIoT] 公共代理已清除');
+    }
+  }
+
+  /// 🎯 获取公共代理URL（供外部读取）
+  String? get publicProxyUrl => _publicProxyUrl;
 
   /// 🎯 设置代理服务器（用于音频流转发）
   /// 必须在播放音乐前设置，否则将尝试直接播放（可能失败）
@@ -52,9 +74,18 @@ class MiIoTService {
 
   /// 登录小米账号
   /// 返回是否登录成功
-  Future<bool> login(String account, String password) async {
+  /// 🎯 登录返回结果
+  Map<String, dynamic>? _lastLoginResponse;
+
+  /// 🎯 获取上次登录响应（用于验证码场景）
+  Map<String, dynamic>? get lastLoginResponse => _lastLoginResponse;
+
+  Future<bool> login(String account, String password, {String? captchaCode}) async {
     try {
       print('🔐 [MiIoT] 开始登录小米账号: $account');
+      if (captchaCode != null) {
+        print('🔐 [MiIoT] 使用验证码登录: $captchaCode');
+      }
 
       // 初始化 deviceId
       _deviceId ??= _generateDeviceId();
@@ -113,17 +144,25 @@ class MiIoTService {
       final passwordHash = md5.convert(utf8.encode(password)).toString().toUpperCase();
 
       // 3. 登录请求
+      final loginData = {
+        '_json': 'true',
+        'qs': qs ?? '',
+        'sid': sid ?? 'micoapi',
+        '_sign': sign,
+        'callback': callback ?? '',
+        'user': account,
+        'hash': passwordHash,
+      };
+
+      // 🎯 如果提供了验证码，添加到请求参数中
+      if (captchaCode != null && captchaCode.isNotEmpty) {
+        loginData['captCode'] = captchaCode;
+        print('📝 [MiIoT] 添加验证码参数: captCode=$captchaCode');
+      }
+
       final loginResponse = await _dio.post(
         'https://account.xiaomi.com/pass/serviceLoginAuth2',
-        data: {
-          '_json': 'true',
-          'qs': qs ?? '',
-          'sid': sid ?? 'micoapi',
-          '_sign': sign,
-          'callback': callback ?? '',
-          'user': account,
-          'hash': passwordHash,
-        },
+        data: loginData,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           headers: {
@@ -136,28 +175,43 @@ class MiIoTService {
 
       print('📡 [MiIoT] 登录响应内容(前200字符): ${loginResponse.data.toString().substring(0, loginResponse.data.toString().length > 200 ? 200 : loginResponse.data.toString().length)}');
 
-      final loginData = _parseJsonResponse(loginResponse.data);
-      if (loginData == null) {
+      final loginResponseData = _parseJsonResponse(loginResponse.data);
+      if (loginResponseData == null) {
         print('❌ [MiIoT] 登录响应解析失败');
         return false;
       }
 
-      print('📝 [MiIoT] 登录响应: code=${loginData['code']}, desc=${loginData['desc']}');
+      print('📝 [MiIoT] 登录响应: code=${loginResponseData['code']}, desc=${loginResponseData['desc']}');
+
+      // 🎯 保存登录响应（用于UI层提取验证码URL）
+      _lastLoginResponse = loginResponseData;
 
       // 检查登录结果
-      if (loginData['code'] != 0) {
-        print('❌ [MiIoT] 登录失败: ${loginData['desc'] ?? loginData['description']}');
+      if (loginResponseData['code'] != 0) {
+        final errorCode = loginResponseData['code'];
+        final errorDesc = loginResponseData['desc'] ?? loginResponseData['description'];
+
+        // 🎯 特殊处理验证码错误（错误码70016）
+        if (errorCode == 70016) {
+          final captchaUrl = loginResponseData['captchaUrl'] as String?;
+          print('⚠️ [MiIoT] 需要验证码登录');
+          print('⚠️ [MiIoT] 验证码URL: $captchaUrl');
+          // 返回 false，但保留 _lastLoginResponse 供UI层使用
+          return false;
+        }
+
+        print('❌ [MiIoT] 登录失败: $errorDesc (code: $errorCode)');
         return false;
       }
 
       // 保存基础信息
-      _userId = loginData['userId']?.toString();
-      _passToken = loginData['passToken'] as String?;
-      _ssecurity = loginData['ssecurity'] as String?;
+      _userId = loginResponseData['userId']?.toString();
+      _passToken = loginResponseData['passToken'] as String?;
+      _ssecurity = loginResponseData['ssecurity'] as String?;
 
       // 4. 获取serviceToken
-      final location = loginData['location'] as String?;
-      final nonce = loginData['nonce'];
+      final location = loginResponseData['location'] as String?;
+      final nonce = loginResponseData['nonce'];
 
       if (location == null || _ssecurity == null) {
         print('❌ [MiIoT] location或ssecurity为空');
@@ -283,24 +337,34 @@ class MiIoTService {
     if (musicUrl.contains('redirect=1') || musicUrl.contains('wx.music.tc.qq.com')) {
       print('🔄 [MiIoT] 检测到重定向URL，先解析真实地址...');
       try {
-        final response = await _dio.head(
+        // 🔧 改用 GET 请求并跟随重定向，获取最终的真实 URL
+        final response = await _dio.get(
           musicUrl,
           options: Options(
-            followRedirects: false, // 不自动跟随重定向
-            validateStatus: (status) => status! < 400, // 接受3xx状态码
+            followRedirects: true, // 自动跟随重定向
+            maxRedirects: 5, // 最多跟随5次重定向
+            validateStatus: (status) => status! < 400,
             headers: {
-              'User-Agent': 'Wget/1.21.3',
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
+              'Range': 'bytes=0-1', // 只请求1字节，节省流量
             },
           ),
         );
 
-        // 从响应头中获取重定向地址
-        final location = response.headers.value('location');
-        if (location != null && location.isNotEmpty) {
-          playUrl = location;
+        // 🔧 获取最终的重定向地址（从响应的 realUri 获取）
+        final realUri = response.realUri;
+        if (realUri != null && realUri.toString() != musicUrl) {
+          playUrl = realUri.toString();
           print('✅ [MiIoT] 解析到真实URL: ${playUrl.substring(0, playUrl.length > 80 ? 80 : playUrl.length)}...');
         } else {
-          print('⚠️ [MiIoT] 未找到重定向地址，使用原始URL');
+          // 尝试从响应头获取
+          final location = response.headers.value('location');
+          if (location != null && location.isNotEmpty) {
+            playUrl = location;
+            print('✅ [MiIoT] 从响应头获取真实URL: ${playUrl.substring(0, playUrl.length > 80 ? 80 : playUrl.length)}...');
+          } else {
+            print('⚠️ [MiIoT] 未找到重定向地址，使用原始URL');
+          }
         }
       } catch (e) {
         print('⚠️ [MiIoT] 解析重定向失败，使用原始URL: $e');
@@ -310,16 +374,59 @@ class MiIoTService {
     // 🎯 使用代理服务器转发音频流（可选）
     // 小爱音箱直接访问某些CDN可能失败（User-Agent限制等）
     // 通过本地代理服务器转发，可以完美解决这些问题
+    // 🔧 优先使用本地代理（同局域网），其次公共代理，最后直接URL
+
+    // 方案1：尝试使用本地代理（需要同一局域网，用WiFi时可用）
     if (_proxyServer != null && _proxyServer!.isRunning) {
-      // 使用代理服务器转发
       final originalUrl = playUrl;
-      playUrl = _proxyServer!.getProxyUrl(playUrl);
-      useProxy = true;
-      print('🔄 [MiIoT] 使用代理转发');
-      print('   原始URL: ${originalUrl.substring(0, originalUrl.length > 80 ? 80 : originalUrl.length)}...');
-      print('   代理URL: ${playUrl.substring(0, playUrl.length > 80 ? 80 : playUrl.length)}...');
-    } else {
-      print('⚠️ [MiIoT] 直接使用真实URL（无代理）');
+      try {
+        // 🔧 检查本地代理是否真的可达（关键修复！）
+        // 用流量时可能连不上本地代理，需要提前检测
+        final proxyUrl = _proxyServer!.getProxyUrl('http://www.baidu.com');
+        print('🔍 [MiIoT] 检查本地代理可达性: $proxyUrl');
+
+        final healthCheckResponse = await _dio.head(
+          proxyUrl,
+          options: Options(
+            receiveTimeout: const Duration(milliseconds: 2000), // 2秒超时
+            sendTimeout: const Duration(milliseconds: 2000),
+            validateStatus: (status) => true, // 接受任何状态码
+          ),
+        ).timeout(const Duration(milliseconds: 3000)); // 额外3秒超时保护
+
+        // 如果本地代理可达，使用它
+        if (healthCheckResponse.statusCode != null) {
+          playUrl = _proxyServer!.getProxyUrl(playUrl);
+          useProxy = true;
+          print('✅ [MiIoT] 本地代理可达，使用本地代理转发');
+          print('   原始URL: ${originalUrl.substring(0, originalUrl.length > 80 ? 80 : originalUrl.length)}...');
+          print('   代理URL: ${playUrl.substring(0, playUrl.length > 80 ? 80 : playUrl.length)}...');
+        } else {
+          print('⚠️ [MiIoT] 本地代理不可达（可能用流量了），跳过使用');
+        }
+      } catch (e) {
+        print('⚠️ [MiIoT] 检查本地代理失败，跳过使用: $e');
+      }
+    }
+
+    // 方案2：本地代理不可用时，尝试公共代理
+    if (!useProxy && _publicProxyUrl != null && _publicProxyUrl!.isNotEmpty) {
+      final originalUrl = playUrl;
+      try {
+        // 使用 Cloudflare Workers 代理格式
+        playUrl = '$_publicProxyUrl/proxy?url=${Uri.encodeComponent(playUrl)}';
+        useProxy = true;
+        print('🔄 [MiIoT] 本地代理不可用，使用公共代理转发');
+        print('   原始URL: ${originalUrl.substring(0, originalUrl.length > 80 ? 80 : originalUrl.length)}...');
+        print('   代理URL: ${playUrl.substring(0, playUrl.length > 80 ? 80 : playUrl.length)}...');
+      } catch (e) {
+        print('⚠️ [MiIoT] 使用公共代理失败: $e');
+      }
+    }
+
+    // 方案3：代理都不可用，直接使用真实URL
+    if (!useProxy) {
+      print('⚠️ [MiIoT] 代理不可用，直接使用真实URL');
       print('🔗 [MiIoT] 播放URL: ${playUrl.substring(0, playUrl.length > 80 ? 80 : playUrl.length)}...');
     }
 
@@ -510,9 +617,12 @@ class MiIoTService {
 
                 // status=1 表示播放中，status=2 表示暂停
                 if (playStatus == 2) {
-                  print('⚠️ [MiIoT] 音箱仍处于暂停状态，尝试重新播放...');
+                  print('⚠️ [MiIoT] 音箱仍处于暂停状态，可能还在缓冲...');
+                  print('🔄 [MiIoT] 尝试重新播放并增加等待时间...');
                   await resume(deviceId);
-                  await Future.delayed(const Duration(milliseconds: 500));
+
+                  // 🎯 增加等待时间到2秒（原来只有500ms太短了！）
+                  await Future.delayed(const Duration(seconds: 2));
 
                   // 再次检查
                   final retryStatus = await getPlayStatus(deviceId);
@@ -525,12 +635,18 @@ class MiIoTService {
                     } else if (useProxy) {
                       // 🔄 如果使用了代理但仍然失败，尝试使用直接URL
                       print('⚠️ [MiIoT] 代理播放失败，尝试直接播放原始URL...');
-                      print('💡 [MiIoT] 可能原因：音箱无法访问手机的代理服务器（网络隔离/防火墙）');
+                      if (_publicProxyUrl != null) {
+                        print('💡 [MiIoT] 可能原因：公共代理服务异常或URL解析失败');
+                      } else {
+                        print('💡 [MiIoT] 可能原因：音箱无法访问手机的代理服务器（网络隔离/防火墙）');
+                      }
 
                       // 递归调用，但不使用代理
                       print('🔄 [MiIoT] Fallback: 使用原始URL重试...');
                       final originalProxyServer = _proxyServer;
-                      _proxyServer = null; // 临时禁用代理
+                      final originalPublicProxyUrl = _publicProxyUrl;
+                      _proxyServer = null; // 临时禁用本地代理
+                      _publicProxyUrl = null; // 临时禁用公共代理
 
                       final directPlaySuccess = await playMusic(
                         deviceId: deviceId,
@@ -539,7 +655,8 @@ class MiIoTService {
                         musicName: musicName,
                       );
 
-                      _proxyServer = originalProxyServer; // 恢复代理设置
+                      _proxyServer = originalProxyServer; // 恢复本地代理设置
+                      _publicProxyUrl = originalPublicProxyUrl; // 恢复公共代理设置
 
                       if (directPlaySuccess) {
                         print('✅ [MiIoT] 直接播放成功！');
@@ -559,7 +676,20 @@ class MiIoTService {
 
               return true;
             } else {
-              print('⚠️ [MiIoT] 播放命令发送失败，但音乐已设置');
+              print('⚠️ [MiIoT] 播放命令发送失败，尝试重试...');
+
+              // 重试3次
+              for (int retry = 0; retry < 3; retry++) {
+                await Future.delayed(const Duration(seconds: 1));
+                print('🔄 [MiIoT] 重试播放命令 (${retry + 1}/3)...');
+                final retrySuccess = await resume(deviceId);
+                if (retrySuccess) {
+                  print('✅ [MiIoT] 重试成功！');
+                  return true;
+                }
+              }
+
+              print('⚠️ [MiIoT] 播放命令失败，但音乐已设置，音箱可能会自动播放');
               return true; // 音乐已设置，返回成功
             }
           } else {
