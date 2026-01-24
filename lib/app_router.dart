@@ -17,6 +17,7 @@ import 'presentation/pages/playback_mode_selection_page.dart';
 import 'presentation/pages/login_page.dart';
 import 'presentation/pages/direct_mode_login_page.dart';
 import 'presentation/pages/playlist_page.dart'; // 🎯 新增：歌单页面
+import 'presentation/pages/music_search_page.dart'; // 🎯 新增：搜索页面
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 直接从根路由开始，不使用额外的 Splash 页面
@@ -117,6 +118,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final showCreate = state.uri.queryParameters['showCreate'] == 'true';
           return PlaylistPage(showCreateDialog: showCreate);
         },
+      ),
+      // 🎯 新增：搜索页面路由
+      GoRoute(
+        path: '/search',
+        name: 'search',
+        builder: (context, state) => const MusicSearchPage(),
       ),
     ],
     debugLogDiagnostics: false,
