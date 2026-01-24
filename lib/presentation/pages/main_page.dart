@@ -18,6 +18,8 @@ import '../providers/ssh_settings_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/playback_provider.dart';
 import '../providers/usage_stats_provider.dart';
+import '../providers/direct_mode_provider.dart'; // 🎯 新增：播放模式
+import '../providers/local_playlist_provider.dart'; // 🎯 新增：直连模式歌单
 import '../widgets/sponsor_prompt_dialog.dart';
 
 class MainPage extends ConsumerStatefulWidget {
@@ -50,11 +52,20 @@ class _MainPageState extends ConsumerState<MainPage> with SingleTickerProviderSt
     setState(() {
       _selectedIndex = index;
     });
-    // 当切到“列表”标签（index 2）时触发一次加载
+    // 当切到"列表"标签（index 2）时触发一次加载
     if (index == 2 && wasIndex != 2) {
-      final auth = ref.read(authProvider);
-      if (auth is AuthAuthenticated) {
-        ref.read(playlistProvider.notifier).refreshPlaylists();
+      // 🎯 根据播放模式刷新对应的歌单
+      final playbackMode = ref.read(playbackModeProvider);
+
+      if (playbackMode == PlaybackMode.miIoTDirect) {
+        // 直连模式：刷新本地歌单
+        ref.read(localPlaylistProvider.notifier).refreshPlaylists();
+      } else {
+        // xiaomusic 模式：检查登录后刷新服务器歌单
+        final auth = ref.read(authProvider);
+        if (auth is AuthAuthenticated) {
+          ref.read(playlistProvider.notifier).refreshPlaylists();
+        }
       }
     }
   }
