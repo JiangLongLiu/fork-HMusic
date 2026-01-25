@@ -28,6 +28,7 @@ import '../../data/models/playlist_queue.dart'; // 🎯 播放队列模型
 import '../providers/playlist_provider.dart'; // 🎯 播放列表Provider
 import '../providers/local_playlist_provider.dart'; // 🎯 本地播放列表Provider
 import '../../data/models/local_playlist.dart'; // 🎯 本地播放列表模型
+import '../providers/navigation_provider.dart'; // 🎯 Tab 导航Provider
 
 class MusicSearchPage extends ConsumerStatefulWidget {
   const MusicSearchPage({super.key});
@@ -805,8 +806,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                 label: '查看',
                 textColor: Colors.white,
                 onPressed: () {
-                  // 跳转到歌单页面
-                  context.push('/playlist');
+                  // 🎯 切换到歌单 Tab（而不是打开新页面）
+                  ref.read(mainTabIndexProvider.notifier).state = MainTabIndex.playlist;
                 },
               ),
             );

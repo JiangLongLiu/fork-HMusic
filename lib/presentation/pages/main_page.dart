@@ -20,6 +20,7 @@ import '../providers/playback_provider.dart';
 import '../providers/usage_stats_provider.dart';
 import '../providers/direct_mode_provider.dart'; // 🎯 新增：播放模式
 import '../providers/local_playlist_provider.dart'; // 🎯 新增：直连模式歌单
+import '../providers/navigation_provider.dart'; // 🎯 新增：Tab 索引管理
 import '../widgets/sponsor_prompt_dialog.dart';
 
 class MainPage extends ConsumerStatefulWidget {
@@ -52,6 +53,10 @@ class _MainPageState extends ConsumerState<MainPage> with SingleTickerProviderSt
     setState(() {
       _selectedIndex = index;
     });
+
+    // 🎯 同步更新 Provider（让其他页面可以感知当前 Tab）
+    ref.read(mainTabIndexProvider.notifier).state = index;
+
     // 当切到"列表"标签（index 2）时触发一次加载
     if (index == 2 && wasIndex != 2) {
       // 🎯 根据播放模式刷新对应的歌单
@@ -189,6 +194,14 @@ class _MainPageState extends ConsumerState<MainPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+
+    // 🎯 监听 Tab 索引变化（从其他页面切换 Tab 时触发）
+    ref.listen<int>(mainTabIndexProvider, (previous, next) {
+      if (next != _selectedIndex) {
+        _onItemTapped(next);
+      }
+    });
+
     // 是否为亮色模式在此处不再需要单独判断
 
     // 背景渐变已移除，统一使用 surface 颜色，避免滚动影响顶部底色

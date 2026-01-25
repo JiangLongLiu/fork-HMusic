@@ -5,6 +5,75 @@ All notable changes to HMusic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-01-25
+
+### 🎉 重大更新：小米 IoT 直连模式
+
+本次更新带来全新的**直连模式**，无需部署服务器，只需小米账号即可控制小爱音箱播放音乐！
+
+### Added ✨
+
+#### 📱 直连模式（核心新功能）
+- **无服务器播放** - 无需部署 xiaomusic 服务端，开箱即用
+- **小米账号登录** - 支持小米账号密码登录
+- **WebView 验证码** - 自动处理小米安全验证
+- **设备自动发现** - 自动获取账号下的小爱音箱设备
+- **在线音乐播放** - 搜索并播放在线音乐到小爱音箱
+- **播放状态同步** - 实时轮询设备播放状态
+- **状态持久化** - 记住上次播放的歌曲和状态
+
+#### 🎵 播放队列系统
+- 新增播放队列管理
+- 支持添加到队列、清空队列
+- 队列状态持久化
+
+#### 📋 本地歌单系统（直连模式）
+- 创建和管理本地歌单
+- 从搜索结果添加歌曲到歌单
+- 歌单数据本地存储
+
+#### 🔧 其他新功能
+- 音频代理服务器（用于特殊音源）
+- Cloudflare Worker 代理方案
+- 模式选择页面（xiaomusic/直连切换）
+- Tab 导航优化（添加歌曲后可直接切换到歌单）
+
+### Changed 🎨
+
+- 重构播放控制架构，支持多种播放策略
+- PlaybackProvider 大幅增强，支持策略模式
+- 优化模式切换体验，配置自动保存
+- 改进 UI 交互，减少页面跳转
+
+### Fixed 🐛
+
+- 修复模式切换后播放策略未重新初始化的问题
+- 修复直连模式 duration 突变问题（暂停时返回异常值）
+- 修复播放后 6 秒状态延迟问题（添加保护窗口）
+- 修复验证码登录后自动重试失败的竞态条件
+- 修复歌单列表被状态栏遮挡的问题
+- 修复播放切歌时的竞态条件
+- 修复 UI 按钮闪烁问题
+
+### Technical 📦
+
+- 新增 `MiIoTService` 小米 IoT API 服务
+- 新增 `MiIoTDirectPlaybackStrategy` 直连播放策略
+- 新增 `DirectModeProvider` 直连模式状态管理
+- 新增 `LocalPlaylistProvider` 本地歌单管理
+- 新增 `PlaybackQueueProvider` 播放队列管理
+- 新增 `AudioProxyServer` 音频代理服务
+- 新增 `NavigationProvider` Tab 导航管理
+- 架构文档完善（ARCHITECTURE.md, INTEGRATION_GUIDE.md）
+
+### License 📜
+
+- 项目正式开源
+- 采用 AGPL-3.0 许可证
+- 商业使用需要授权
+
+---
+
 ## [2.1.2] - 2025-01-14
 
 ### Added ✨

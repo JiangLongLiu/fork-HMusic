@@ -83,7 +83,7 @@ HMusic 现在支持两种播放模式，满足不同用户的需求：
 #### 下载安装
 
 从 [Releases](https://github.com/hpcll/XiaoMi_Music_Client/releases) 下载最新版本：
-- **Android**: HMusic-v2.0.0.apk
+- **Android**: HMusic-v2.2.0.apk
 - **iOS**: 即将推出
 
 #### 首次使用
@@ -111,7 +111,7 @@ HMusic 现在支持两种播放模式，满足不同用户的需求：
 #### 下载安装
 
 从 [Releases](https://github.com/hpcll/XiaoMi_Music_Client/releases) 下载最新版本：
-- **Android**: HMusic-v2.0.0.apk
+- **Android**: HMusic-v2.2.0.apk
 - **iOS**: 即将推出
 
 #### 首次使用
@@ -258,7 +258,37 @@ HMusic 现在支持两种播放模式，满足不同用户的需求：
 
 ## 📝 更新日志
 
-查看 [RELEASE_V2.0.0.md](RELEASE_V2.0.0.md) 了解最新版本详情。
+查看 [CHANGELOG.md](CHANGELOG.md) 了解版本更新详情。
+
+---
+
+## 📜 许可证
+
+本项目采用 **GNU Affero General Public License v3.0 (AGPL-3.0)** 许可证开源。
+
+### 开源许可
+
+- ✅ 个人学习、研究、非商业使用
+- ✅ 修改代码（必须以相同许可证开源）
+- ✅ 分发代码（必须以相同许可证开源）
+- ✅ 网络服务使用（必须公开源代码）
+
+### ⚠️ 商业使用限制
+
+**商业使用需要获得授权！**
+
+如果您希望将 HMusic 用于商业目的（包括但不限于）：
+- 在商业产品中使用
+- 提供付费服务
+- 企业内部商业用途
+
+请联系作者获取商业授权：
+- 📧 Email: [在 GitHub Issues 中联系]
+- 💬 GitHub: [https://github.com/hpcll/HMusic/issues](https://github.com/hpcll/HMusic/issues)
+
+### 许可证全文
+
+查看 [LICENSE](LICENSE) 文件了解完整的许可证条款。
 
 ---
 
