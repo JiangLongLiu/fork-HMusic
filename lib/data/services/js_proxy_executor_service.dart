@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_js/flutter_js.dart';
+import '../utils/js_runtime_helper.dart';
 
 /// JS脚本代理执行器服务
 /// 让JS脚本自己处理所有请求，我们只负责接收结果
@@ -15,11 +16,12 @@ class JSProxyExecutorService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    _runtime = getJavascriptRuntime();
+    // 🔧 iOS/Android 统一使用 QuickJsRuntime2
+    _runtime = createUnifiedJsRuntime();
     await _setupLXMusicEnvironment();
     _isInitialized = true;
 
-    print('[JSProxy] ✅ JS执行环境初始化完成');
+    print('[JSProxy] ✅ JS执行环境初始化完成 (QuickJsRuntime2)');
   }
 
   /// 设置LX Music运行环境
@@ -433,7 +435,8 @@ class JSProxyExecutorService {
       try {
         print('[JSProxy] ♻️ 重置JS运行时，清理旧脚本环境');
         _runtime?.dispose();
-        _runtime = getJavascriptRuntime();
+        // 🔧 iOS/Android 统一使用 QuickJsRuntime2
+        _runtime = createUnifiedJsRuntime();
         await _setupLXMusicEnvironment();
       } catch (e) {
         print('[JSProxy] ⚠️ 重置JS运行时失败，继续使用现有环境: $e');

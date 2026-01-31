@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../presentation/providers/source_settings_provider.dart';
 import '../models/js_script.dart';
 import 'dart:convert';
+import '../utils/js_runtime_helper.dart';
 // grass 支持已移除
 
 class LocalJsSourceService {
@@ -30,7 +31,8 @@ class LocalJsSourceService {
     // 设置transformer为处理任意响应类型，避免content-type解析问题
     dio.transformer = BackgroundTransformer();
 
-    return LocalJsSourceService._(getJavascriptRuntime(), dio);
+    // 🔧 iOS/Android 统一使用 QuickJsRuntime2
+    return LocalJsSourceService._(createUnifiedJsRuntime(), dio);
   }
 
   // 内置脚本加载已完全移除

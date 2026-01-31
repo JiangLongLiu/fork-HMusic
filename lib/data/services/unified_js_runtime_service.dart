@@ -4,6 +4,7 @@ import 'package:flutter_js/flutter_js.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/js_script.dart';
+import '../utils/js_runtime_helper.dart';
 
 /// 统一的JS运行时服务 - 单例模式
 ///
@@ -69,8 +70,9 @@ class UnifiedJsRuntimeService {
     _isInitializing = true;
 
     try {
-      print('[UnifiedJS] 🔧 开始初始化JS运行时...');
-      _runtime = getJavascriptRuntime();
+      print('[UnifiedJS] 🔧 开始初始化JS运行时 (QuickJsRuntime2)...');
+      // 🔧 iOS/Android 统一使用 QuickJsRuntime2
+      _runtime = createUnifiedJsRuntime();
 
       // 注入所有必需的shim代码（只执行一次）
       await _injectShims();

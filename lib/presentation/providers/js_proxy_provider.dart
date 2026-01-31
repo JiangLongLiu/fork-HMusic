@@ -101,6 +101,23 @@ class JSProxyNotifier extends StateNotifier<JSProxyState> {
   /// 自动加载已选脚本
   Future<void> _autoLoadSelectedScript() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // 🛡️ 崩溃保护：检查上次脚本加载是否导致崩溃
+      final lastLoadCrashed = prefs.getBool('script_load_in_progress') ?? false;
+      if (lastLoadCrashed) {
+        print('[JSProxyProvider] ⚠️ 检测到上次脚本加载崩溃，跳过自动加载并清除选中脚本');
+        // 清除崩溃标记
+        await prefs.setBool('script_load_in_progress', false);
+        // 清除选中的脚本，防止下次再次崩溃
+        await prefs.remove('selected_script_id');
+        // 通知用户
+        state = state.copyWith(
+          error: '检测到脚本兼容性问题，已自动禁用。请尝试其他脚本。',
+        );
+        return;
+      }
+
       final settings = _ref.read(sourceSettingsProvider);
       print(
         '[JSProxyProvider] 📋 检查自动加载条件: primarySource=${settings.primarySource}',
@@ -117,7 +134,15 @@ class JSProxyNotifier extends StateNotifier<JSProxyState> {
 
         if (selected != null) {
           print('[JSProxyProvider] 🚀 自动加载已选脚本: ${selected.name}');
+
+          // 🛡️ 设置崩溃保护标记（加载前）
+          await prefs.setBool('script_load_in_progress', true);
+
           final success = await loadScriptByScript(selected);
+
+          // 🛡️ 加载成功，清除崩溃保护标记
+          await prefs.setBool('script_load_in_progress', false);
+
           print('[JSProxyProvider] 📊 自动加载结果: $success');
         } else {
           print('[JSProxyProvider] ⚠️ 未选择脚本或脚本管理器未加载，跳过自动加载');
@@ -127,6 +152,11 @@ class JSProxyNotifier extends StateNotifier<JSProxyState> {
       }
     } catch (e) {
       print('[JSProxyProvider] ❌ 自动加载脚本异常: $e');
+      // 🛡️ 异常时也要清除崩溃保护标记
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('script_load_in_progress', false);
+      } catch (_) {}
     }
   }
 

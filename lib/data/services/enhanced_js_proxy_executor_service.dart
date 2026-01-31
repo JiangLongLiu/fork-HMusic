@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import '../utils/js_runtime_helper.dart';
 
 /// 增强版JS脚本代理执行器服务
 /// 完全兼容LX Music脚本格式和API
@@ -43,16 +44,21 @@ class EnhancedJSProxyExecutorService {
     }
   }
 
+  // 🔧 iOS/Android 统一使用 QuickJsRuntime2，避免 JavaScriptCore 兼容性问题
+  static JavascriptRuntime _createUnifiedRuntime() {
+    return createUnifiedJsRuntime();
+  }
+
   /// 初始化JS执行环境
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    _runtime = getJavascriptRuntime();
+    _runtime = _createUnifiedRuntime();
     await _setupCompleteLXMusicEnvironment();
     await _ensureLxPreloadLoaded();
     _isInitialized = true;
 
-    print('[EnhancedJSProxy] ✅ JS执行环境初始化完成');
+    print('[EnhancedJSProxy] ✅ JS执行环境初始化完成 (QuickJsRuntime2)');
   }
 
   Future<void> _ensureLxPreloadLoaded() async {
@@ -2661,7 +2667,7 @@ class EnhancedJSProxyExecutorService {
       try {
         print('[EnhancedJSProxy] ♻️ 重置JS运行时，清理旧脚本环境');
         _runtime?.dispose();
-        _runtime = getJavascriptRuntime();
+        _runtime = _createUnifiedRuntime();
         await _setupCompleteLXMusicEnvironment();
       } catch (e) {
         print('[EnhancedJSProxy] ⚠️ 重置JS运行时失败，继续使用现有环境: $e');
